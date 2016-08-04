@@ -1,4 +1,4 @@
-# datto.flow
+# datto.flow [![Build Status](https://travis-ci.org/backupify/datto-flow.svg?branch=master)](https://travis-ci.org/backupify/datto-flow)
 
 Datto-flow augments [Akka-stream](http://doc.akka.io/docs/akka/current/scala/stream/index.html) to make streams that carry context easy to construct and manipulate.
 
