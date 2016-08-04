@@ -10,7 +10,7 @@ Akka-stream does not directly provide tools for these tasks. Instead, the soluti
 
 Manipulating such streams is tiresome. Datto-flow provides tools to make this easy. The `FlowResult[A, Context]` type represents the items in a stream, which have a success/failure state and a context. `FlowBuilder` provides a tool for constructing flows of type `Flow[FlowResult[A, Context], FlowResult[B, Context]]` (this type is abbreviated to `ContextFlow[A, B, Context]`).
 
-### FlowResult
+## FlowResult
 
 The simplified definition of `FlowResult` is as follows:
 
@@ -22,7 +22,7 @@ So, a flow result contains either a value or a failure, a context that is unchan
 
 `FlowResult` is also a monad: it supports `map[B](f: A => B)`, `flatMap[B](f: A => Try[B])` and `mapAsync[B](f: A => Future[B])` operations. It also supports operations that expose the context, such as `mapWithContext[B](f: (A, Context, Metadata) => B)`. Many other useful operations are available. In all cases, these operations are only applied to successful flow results. Failures are propogated unchanged.
 
-### FlowBuilder
+## FlowBuilder
 
 `FlowBuilder` makes building flows of `FlowResults` easy. A standard use of `FlowBuilder` would be as follows:
 
@@ -35,7 +35,7 @@ val myFlow: ContextFlow[Int, Int, MyContext] = FlowBuilder[Int, MyContext]()
 
 `FlowBuilder` supports building flows using most operations provided by `FlowResult`. It also supports other useful operations, such as `flatMapGrouped`, which will process multiple items at once.
 
-### MergeFlow
+## MergeFlow
 
  MergeFlow provides a way to apply branching logic to a flow.
  It works as follows: with each flow, you assign a predicate that determines the conditions under which that flow
@@ -98,6 +98,6 @@ we can create a new flow that will handle all integers according to the combined
    )
 ```
 
-### Generator
+## Generator
 
 Often, a few asynchronous operations are needed to properly construct a `Source`. This can lead to working with objects of type `Future[Source[_]]` instead of type `Source[_]`. `Generator` encapsulates this, making such objects easier to manipulate.
