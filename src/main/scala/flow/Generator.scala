@@ -56,6 +56,8 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
       source2 ← other.source()
     } yield source1.concatMat(source2)(combine))
 
+  def filter(predicate: T ⇒ Boolean)(implicit ec: ExecutionContext) = use(() ⇒ source().map(_.filter(predicate)))
+
   def concat[U >: T](other: Generator[U, _])(implicit ec: ExecutionContext): Generator[U, Out] =
     concatMat(other)(Keep.left)
 

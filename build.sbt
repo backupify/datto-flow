@@ -62,3 +62,36 @@ lazy val stylePreferences = Seq(
     Wart.Serializable,
     Wart.TryPartial,
     Wart.Var))
+
+publishMavenStyle := true
+
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+}
+
+pomIncludeRepository := { _ => false }
+
+pomExtra := (
+  <url>https://github.com/backupify/datto-flow</url>
+  <licenses>
+    <license>
+      <name>MIT</name>
+      <url>https://github.com/backupify/datto-flow/blob/master/LICENSE.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <scm>
+    <url>git@github.com:backupify/datto-flow.git</url>
+    <connection>scm:git:git@github.com:backupify/datto-flow.git</connection>
+  </scm>
+  <developers>
+    <developer>
+      <id>anorwell</id>
+      <name>Arron Norwell</name>
+      <url>http://anorwell.com</url>
+    </developer>
+  </developers>)
