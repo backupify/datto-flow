@@ -6,6 +6,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Source, Keep }
 import akka.testkit.TestKit
+import datto.flow.test.GeneratorHelper
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 

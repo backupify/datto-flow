@@ -1,10 +1,10 @@
-package datto.flow
+package datto.flow.test
 
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{ Keep, Sink }
+import datto.flow._
 import scala.concurrent._
 import scala.concurrent.duration._
-
-import akka.stream.scaladsl.{ Keep, Sink }
 
 trait GeneratorHelper {
   def runGenerator[T, Out](gen: Generator[T, Out])(implicit mat: ActorMaterializer) = {
