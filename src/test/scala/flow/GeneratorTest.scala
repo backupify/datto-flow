@@ -4,11 +4,13 @@ import scala.concurrent._
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Source, Keep }
+import akka.stream.scaladsl.{ Source, Keep, Sink }
 import akka.testkit.TestKit
 import datto.flow.test.GeneratorHelper
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
+import scala.concurrent._
+import scala.concurrent.duration._
 
 class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLike with ScalaFutures with GeneratorHelper {
 
@@ -142,6 +144,25 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
         assert(items === List(2, 1))
         assert(mat === -1)
       }
+    }
+  }
+
+  describe("running Generators") {
+    it("should be runnable when a sink is provided") {
+      val res = Await.result(rawGenerator.runWith(Sink.seq), 1.second)
+      assert(List(1) === res.toList)
+    }
+
+    it("should allow a sink to not materialize a value") {
+      val res = Await.result(rawGenerator.runWith(Sink.ignore), 1.second)
+      assert(res === akka.Done)
+    }
+
+    it("should allow for custom materialization combination functions") {
+      val sumBoth = (a: Future[Int], b: Future[Int]) ⇒ a.flatMap(aVal ⇒ b.map(bVal ⇒ aVal + bVal))
+      val f: Future[Int] = rawGenerator.runWithMat(Sink.head)(sumBoth)
+      val res = Await.result(f, 1.second)
+      assert(0 === res)
     }
   }
 }

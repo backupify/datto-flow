@@ -1,5 +1,6 @@
 package datto.flow
 
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source }
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
@@ -46,6 +47,11 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
     source().map(_.toMat(sink)(combine))
 
   def to[Out2](sink: Sink[T, Out2])(implicit ec: ExecutionContext) = toMat(sink)(Keep.left)
+
+  def runWithMat[Out2, Out3](sink: Sink[T, Future[Out2]])(combine: (Future[Out], Future[Out2]) ⇒ Future[Out3])(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Out3] =
+    toMat(sink)(combine).flatMap(_.run())
+
+  def runWith[Out2](sink: Sink[T, Future[Out2]])(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Out2] = runWithMat(sink)(Keep.right)
 
   def orElse[U >: T, Out2 >: Out](other: Generator[U, Out2])(implicit ec: ExecutionContext): Generator[U, Out2] =
     use(() ⇒ source().recoverWith { case _ ⇒ other.source() })
