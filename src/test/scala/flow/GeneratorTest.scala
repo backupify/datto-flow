@@ -16,12 +16,29 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
   implicit val materializer = ActorMaterializer()
   implicit val ec = system.dispatcher
+  implicit val patience = PatienceConfig(5.seconds, 25.milliseconds)
 
   val rawSource = Source.single(1).mapMaterializedValue(_ ⇒ Future.successful(-1))
-  val rawGenerator = Generator(rawSource)
+  val rawGenerator = Generator.Mat(rawSource)
+
+  def wait[T](f: ⇒ Future[T]): T = Await.result(f, patience.timeout)
+
+  describe("creating generators without materialized values") {
+    it("should be creatable from a NotUsed Source") {
+      val (items, mat) = runGenerator(Generator(Source.single(1)))
+      assert(items === List(1))
+      assert(mat === {})
+    }
+
+    it("should be creatable from future source") {
+      val (items, mat) = runGenerator(Generator.future(Future(Source.single(1))))
+      assert(items === List(1))
+      assert(mat === {})
+    }
+  }
 
   describe("creating generators") {
-    it("should be creatable from a source") {
+    it("should be createable from a source") {
       val (items, mat) = runGenerator(rawGenerator)
       assert(items === List(1))
       assert(mat === -1)
@@ -29,7 +46,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
     it("should lazily evaluate anything within the generator setup") {
       var x = 0
-      val gen = Generator {
+      val gen = Generator.Mat {
         x = 1
         rawSource
       }
@@ -40,7 +57,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
     it("should evaluate the generator setup on each run of the generator") {
       var x = 0
-      val gen = Generator {
+      val gen = Generator.Mat {
         x += 1
         rawSource
       }
@@ -50,14 +67,8 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
       assert(x === 2)
     }
 
-    it("should be creatable from a NotUsed source") {
-      val (items, mat) = runGenerator(Generator.fromNotUsedSource(Source.single(1)))
-      assert(items === List(1))
-      assert(mat === {})
-    }
-
     it("should be creatable from a Future") {
-      val gen = Generator.future {
+      val gen = Generator.Mat.future {
         Future { rawSource }
       }
 
@@ -68,7 +79,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
     it("should lazily evaluate the Future within the generator setup") {
       var x = 0
-      val gen = Generator.future {
+      val gen = Generator.Mat.future {
         Future {
           x = 1
           rawSource
@@ -114,7 +125,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
   describe("combining generators") {
     describe("orElse") {
       it("should replace a failing generator with a successful one") {
-        val generator = Generator.future[Int, Int](Future.failed(new Exception(""))).orElse(rawGenerator)
+        val generator = Generator.Mat.future[Int, Int](Future.failed(new Exception(""))).orElse(rawGenerator)
         val (items, mat) = runGenerator(generator)
         assert(items === List(1))
         assert(mat === -1)
@@ -149,19 +160,19 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
   describe("running Generators") {
     it("should be runnable when a sink is provided") {
-      val res = Await.result(rawGenerator.runWith(Sink.seq), 1.second)
+      val res = wait(rawGenerator.runWith(Sink.seq))
       assert(List(1) === res.toList)
     }
 
     it("should allow a sink to not materialize a value") {
-      val res = Await.result(rawGenerator.runWith(Sink.ignore), 1.second)
+      val res = wait(rawGenerator.runWith(Sink.ignore))
       assert(res === akka.Done)
     }
 
     it("should allow for custom materialization combination functions") {
       val sumBoth = (a: Future[Int], b: Future[Int]) ⇒ a.flatMap(aVal ⇒ b.map(bVal ⇒ aVal + bVal))
       val f: Future[Int] = rawGenerator.runWithMat(Sink.head)(sumBoth)
-      val res = Await.result(f, 1.second)
+      val res = wait(f)
       assert(0 === res)
     }
   }

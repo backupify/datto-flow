@@ -6,25 +6,33 @@ import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 object Generator {
-  def future[T, Out](sourceBuilder: ⇒ Future[Source[T, Future[Out]]]): Generator[T, Out] =
-    new Generator(() ⇒ sourceBuilder)
 
-  def apply[T, Out](source: ⇒ Source[T, Future[Out]]): Generator[T, Out] =
-    Generator.future(Future.successful(source))
+  object Mat {
+    def future[T, Out](sourceBuilder: ⇒ Future[Source[T, Future[Out]]]): Generator[T, Out] =
+      new Generator(() ⇒ sourceBuilder)
 
-  def empty[T, Out](implicit ec: ExecutionContext) = Generator.fromNotUsedSource[T](Source.empty[T])
+    def apply[T, Out](source: ⇒ Source[T, Future[Out]]): Generator[T, Out] =
+      Generator.Mat.future(Future.successful(source))
+  }
 
-  def iterator[T, Out](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
-    Generator.fromNotUsedSource(Source.fromIterator(it))
+  def future[T](sourceBuilder: ⇒ Future[Source[T, akka.NotUsed]])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    new Generator(() ⇒ sourceBuilder.map(toUnit))
+
+  def apply[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    Generator.Mat(toUnit(source))
+
+  def empty[T](implicit ec: ExecutionContext) = Generator[T](Source.empty[T])
+
+  def iterator[T](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
+    Generator(Source.fromIterator(it))
 
   def futureGenerator[T, Out](futureGen: ⇒ Future[Generator[T, Out]])(implicit ec: ExecutionContext) =
-    Generator.future(futureGen.flatMap(_.source()))
+    Generator.Mat.future(futureGen.flatMap(_.source()))
 
-  def failed[T, Out](e: Throwable) = Generator.future[T, Out](Future.failed[Source[T, Future[Out]]](e))
+  def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e))
 
-  def fromNotUsedSource[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] = {
-    Generator(source.alsoToMat(Sink.lastOption[T])(Keep.right).mapMaterializedValue(_.map(_ ⇒ {})))
-  }
+  private def toUnit[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Source[T, Future[Unit]] =
+    source.alsoToMat(Sink.lastOption[T])(Keep.right).mapMaterializedValue(_.map(_ ⇒ {}))
 }
 
 class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {

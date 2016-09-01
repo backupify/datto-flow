@@ -101,3 +101,44 @@ we can create a new flow that will handle all integers according to the combined
 ## Generator
 
 Often, a few asynchronous operations are needed to properly construct a `Source`. This can lead to working with objects of type `Future[Source[_]]` instead of type `Source[_]`. `Generator` encapsulates this, making such objects easier to manipulate.
+
+Some examples:
+
+Creating a generator from data retrieved by a future:
+```scala
+
+def getDataFuture(): Future[Stream[Int]]
+
+val generator = Generator.future[Int, Unit] {
+  getDataFuture().map(dataCollection => Source(dataCollection))
+}
+generator.runWith(Sink.seq) //returns a Future[Seq[Int]]
+
+```
+
+Performing a task prior to executing the stream:
+```scala
+def preRunHook(): Future[Unit]
+
+val generator = Generator.future {
+  preRunHook().map(_ => mySource)
+}
+generator.runWith(Sink.seq)
+```
+
+The materialization of the underlying source is always of type `Future[T]`. In the above examples, it is of type
+`Future[Unit]`. For other materialization types, use the `Generator.Mat` functions:
+
+```scala
+val generator = Generator.Mat.future {
+  getDataFuture().map(dataCollection => Source(dataCollection)).mapMaterializedValue(_ => 1)
+}
+
+generator.runWithMat(Sink.ignore)(Keep.left) // returns a Future[Int]
+```
+
+Another way to express the materialization in the last line would be:
+
+```scala
+generator.to(Sink.ignore).map(_.run())
+```
