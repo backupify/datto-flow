@@ -1,6 +1,6 @@
 scalaVersion := "2.11.8"
 
-version := "1.3.0"
+version := "1.4.0"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -38,9 +38,6 @@ lazy val root = (project in file(".")).
       )
     }
   )
-
-resolvers += "Spray" at "repo.spray.io"
-
 
 lazy val stylePreferences = Seq(
   ScalariformKeys.preferences := ScalariformKeys.preferences.value

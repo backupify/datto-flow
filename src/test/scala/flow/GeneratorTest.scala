@@ -11,6 +11,7 @@ import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent._
 import scala.concurrent.duration._
+import GeneratorImplicits._
 
 class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLike with ScalaFutures with GeneratorHelper {
 
@@ -174,6 +175,20 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
       val f: Future[Int] = rawGenerator.runWithMat(Sink.head)(sumBoth)
       val res = wait(f)
       assert(0 === res)
+    }
+  }
+
+  describe("generator implicits") {
+    it("should be able to flatten a future generator") {
+      val futureGen = Future.successful(Generator(Source.single(1)))
+      val res = wait(futureGen.flatten.runWith(Sink.ignore))
+      assert(res === akka.Done)
+    }
+
+    it("should be able to flatten a future source") {
+      val futureGen = Future.successful(Source.single(1)).generator
+      val res = wait(futureGen.runWith(Sink.ignore))
+      assert(res === akka.Done)
     }
   }
 }

@@ -21,6 +21,9 @@ object Generator {
   def apply[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] =
     Generator.Mat(toUnit(source))
 
+  def apply[T](stream: Stream[T])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    Generator.Mat(toUnit(Source(stream)))
+
   def empty[T](implicit ec: ExecutionContext) = Generator[T](Source.empty[T])
 
   def iterator[T](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
