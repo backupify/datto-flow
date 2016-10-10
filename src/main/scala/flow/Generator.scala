@@ -4,6 +4,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source }
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
+import scala.collection.immutable
 
 object Generator {
 
@@ -44,6 +45,9 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
 
   def mapAsync[U](parallelism: Int)(f: T ⇒ Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.mapAsyncUnordered(parallelism)(f)))
+
+  def mapConcat[U](f: T ⇒ immutable.Iterable[U])(implicit ec: ExecutionContext): Generator[U, Out] =
+    use(() ⇒ source().map(_.mapConcat(f)))
 
   def mapMaterializedValue[Out2](f: Out ⇒ Out2)(implicit ec: ExecutionContext) =
     flatMapMaterializedValue(out ⇒ Future.successful(f(out)))
