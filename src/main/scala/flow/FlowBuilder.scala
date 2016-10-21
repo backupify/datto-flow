@@ -108,10 +108,22 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
   def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))
 
-  def flatMapConcat[U](f: FlowResult[T, Ctx] ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = use {
-    val generatorFlow: Flow[FlowResult[I, Ctx], Source[FlowResult[U, Ctx], Future[Unit]], akka.NotUsed] =
+  def oldflatMapConcat[U](f: FlowResult[T, Ctx] ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
+    val sourceFlow: Flow[FlowResult[I, Ctx], Source[FlowResult[U, Ctx], Future[Unit]], akka.NotUsed] =
       flow.mapAsyncUnordered(defaultParallelism)(res ⇒ f(res).source())
-    generatorFlow.flatMapConcat(x ⇒ x)
+    use(sourceFlow.flatMapConcat(x ⇒ x))
+  }
+
+  @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf"))
+  def flatMapConcat[U](f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
+    val sourceFlow: Flow[FlowResult[I, Ctx], FlowResult[Source[FlowResult[U, Ctx], Future[Unit]], Ctx], akka.NotUsed] =
+      mapWithContextAsync((value, ctx, md) ⇒ f(value, ctx, md).source()).flow
+    use(sourceFlow.flatMapConcat { sourceResult ⇒
+      sourceResult.value match {
+        case Success(source) ⇒ source
+        case Failure(e)      ⇒ Source.single(sourceResult.asInstanceOf[FlowResult[U, Ctx]])
+      }
+    })
   }
 
   @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf", "org.brianmckenna.wartremover.warts.TryPartial"))
