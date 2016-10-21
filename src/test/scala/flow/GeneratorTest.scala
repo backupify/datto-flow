@@ -121,6 +121,12 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
       assert(items === List(1))
       assert(mat === -2)
     }
+
+    it("should support flatMapConcat") {
+      val generator = rawGenerator.flatMapConcat(4)(i ⇒ Generator.iterator(() ⇒ Seq(i + 1, i + 2).iterator))
+      val (items, mat) = runGenerator(generator)
+      assert(items === List(2, 3))
+    }
   }
 
   describe("combining generators") {

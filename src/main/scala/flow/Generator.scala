@@ -27,6 +27,8 @@ object Generator {
 
   def empty[T](implicit ec: ExecutionContext) = Generator[T](Source.empty[T])
 
+  def single[T](item: T)(implicit ec: ExecutionContext) = Generator[T](Source.single(item))
+
   def iterator[T](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
     Generator(Source.fromIterator(it))
 
@@ -87,6 +89,10 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
 
   def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int)(implicit ec: ExecutionContext): Generator[T, Out] =
     use(() ⇒ source().map(_.throttle(elements, per, maximumBurst, akka.stream.ThrottleMode.Shaping)))
+
+  def flatMapConcat[U](parallelism: Int)(f: T ⇒ Generator[U, Unit])(implicit ec: ExecutionContext) = use { () ⇒
+    mapAsync(parallelism)(x ⇒ f(x).source()).source().map(_.flatMapConcat(x ⇒ x))
+  }
 
   private def use[U, Out2](source: () ⇒ Future[Source[U, Future[Out2]]]) = new Generator(source)
 }

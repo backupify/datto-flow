@@ -141,6 +141,18 @@ class FlowBuilderTest extends TestKit(ActorSystem("FlowBuilder")) with FunSpecLi
           assert(res.map(_.value.isSuccess).head === false)
         }
       }
+
+      it("should support flatMapConcat") {
+        val outFlow = initialBuilder.flatMapConcat { res ⇒
+          val gen: Generator[FlowResult[Int, Int], Unit] = Generator.iterator(() ⇒ Seq(res.map(_ + 1), res.map(_ + 2)).iterator)
+          gen
+        }
+        whenReady(runFlow(1)(outFlow)) { res ⇒
+          assert(res.size === 2)
+          assertResult(Success(2))(res.head.value)
+          assertResult(Success(3))(res.last.value)
+        }
+      }
     }
   }
 }

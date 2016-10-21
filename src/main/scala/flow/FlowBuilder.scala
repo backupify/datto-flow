@@ -5,6 +5,7 @@ import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.{ Flow, Source }
 
 import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration._
 import scala.util.{ Failure, Success, Try }
 import collection.immutable.{ Iterable, Seq }
 
@@ -97,9 +98,21 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
 
   def filter(predicate: FlowResult[T, Ctx] ⇒ Boolean) = use(flow.filter(predicate))
 
+  def throttle(elements: Int, per: FiniteDuration = 1.second): FlowBuilder[I, T, Ctx] =
+    throttle(elements, per, elements)
+
+  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int): FlowBuilder[I, T, Ctx] =
+    use(flow.throttle(elements, per, maximumBurst, akka.stream.ThrottleMode.Shaping))
+
   def addMetadata(entry: MetadataEntry) = use(flow.map(_.addMetadata(entry)))
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
   def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))
+
+  def flatMapConcat[U](f: FlowResult[T, Ctx] ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = use {
+    val generatorFlow: Flow[FlowResult[I, Ctx], Source[FlowResult[U, Ctx], Future[Unit]], akka.NotUsed] =
+      flow.mapAsyncUnordered(defaultParallelism)(res ⇒ f(res).source())
+    generatorFlow.flatMapConcat(x ⇒ x)
+  }
 
   @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf", "org.brianmckenna.wartremover.warts.TryPartial"))
   def flatMapGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] ⇒ Seq[Try[U]]) = {
