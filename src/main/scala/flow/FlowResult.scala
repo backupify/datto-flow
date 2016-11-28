@@ -1,6 +1,5 @@
 package datto.flow
 
-import akka.http.scaladsl.util.FastFuture
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 import scala.collection.immutable.{ Seq, Iterable }
@@ -56,7 +55,7 @@ case class FlowResult[+T, Ctx](value: Try[T], context: Ctx, metadata: Metadata =
         f(v, context, metadata)
           .recover { case e ⇒ Failure[U](e) }
           .map(newV ⇒ FlowResult(this, newV, context, metadata))
-      case Failure(e) ⇒ FastFuture.successful(FlowResult(this, Failure[U](e), context, metadata))
+      case Failure(e) ⇒ Future.successful(FlowResult(this, Failure[U](e), context, metadata))
     }
 
   def mapResultAsync[U](f: FlowResult[T, Ctx] ⇒ Future[FlowResult[U, Ctx]])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =

@@ -1,7 +1,6 @@
 package datto.flow
 
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.util.FastFuture
 import akka.stream.scaladsl.{ Flow, Source }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -156,7 +155,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
       val transformedSuccesses: Future[Seq[FlowResult[U, Ctx]]] =
         successes.length match {
           case 0 ⇒ Future.successful(Seq[FlowResult[U, Ctx]]())
-          case _ ⇒ Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(FastFuture.successful(successes)).map {
+          case _ ⇒ Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
             case (results, originals) ⇒ results.zip(originals).map {
               case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
             }

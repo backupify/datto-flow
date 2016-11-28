@@ -1,6 +1,6 @@
-scalaVersion := "2.11.8"
+scalaVersion in ThisBuild := "2.11.8"
 
-version := "1.7.1"
+version := "1.7.2"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -20,7 +20,7 @@ lazy val commonSettings = Seq(
 fork in run := true
 javaOptions in run += "-Xmx8G -XX:+PrintGC"
 
-val akkaV       = "2.4.11"
+val akkaV       = "2.4.14"
 val scalaTestV  = "2.2.5"
 
 lazy val root = (project in file(".")).
@@ -32,7 +32,6 @@ lazy val root = (project in file(".")).
       Seq(
         "com.typesafe.akka"      %% "akka-actor"                           % akkaV,
         "com.typesafe.akka"      %% "akka-stream"                          % akkaV,
-        "com.typesafe.akka"      %% "akka-http-core"                       % akkaV,
         "org.scalatest"          %% "scalatest"                            % scalaTestV,
         "com.typesafe.akka"      %% "akka-testkit"                         % akkaV % "test"
       )
