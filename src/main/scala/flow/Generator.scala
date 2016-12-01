@@ -38,7 +38,7 @@ object Generator {
   def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e))
 
   private def toUnit[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Source[T, Future[Unit]] =
-    source.alsoToMat(Sink.lastOption[T])(Keep.right).mapMaterializedValue(_.map(_ ⇒ {}))
+    source.mapMaterializedValue(_ ⇒ Future.successful({}))
 }
 
 class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
