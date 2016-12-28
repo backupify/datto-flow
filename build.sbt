@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version := "1.9.0"
+version := "1.9.1"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -32,7 +32,7 @@ lazy val root = (project in file(".")).
       Seq(
         "com.typesafe.akka"      %% "akka-actor"                           % akkaV,
         "com.typesafe.akka"      %% "akka-stream"                          % akkaV,
-        "org.scalatest"          %% "scalatest"                            % scalaTestV,
+        "org.scalatest"          %% "scalatest"                            % scalaTestV % "test",
         "com.typesafe.akka"      %% "akka-testkit"                         % akkaV % "test"
       )
     }
