@@ -48,6 +48,9 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
   def mapAsync[U](parallelism: Int)(f: T ⇒ Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.mapAsyncUnordered(parallelism)(f)))
 
+  def mapAsyncOrdered[U](parallelism: Int)(f: T ⇒ Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =
+    use(() ⇒ source().map(_.mapAsync(parallelism)(f)))
+
   def mapConcat[U](f: T ⇒ immutable.Iterable[U])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.mapConcat(f)))
 
@@ -89,6 +92,14 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
 
   def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int)(implicit ec: ExecutionContext): Generator[T, Out] =
     use(() ⇒ source().map(_.throttle(elements, per, maximumBurst, akka.stream.ThrottleMode.Shaping)))
+
+  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
+    costCalculation: (T) ⇒ Int)(implicit ec: ExecutionContext): Generator[T, Out] =
+    throttle(elements, per, maximumBurst, costCalculation, akka.stream.ThrottleMode.Shaping)
+
+  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
+    costCalculation: (T) ⇒ Int, mode: akka.stream.ThrottleMode)(implicit ec: ExecutionContext): Generator[T, Out] =
+    use(() ⇒ source().map(_.throttle(elements, per, maximumBurst, costCalculation, mode)))
 
   def flatMapConcat[U](parallelism: Int)(f: T ⇒ Generator[U, Unit])(implicit ec: ExecutionContext) = use { () ⇒
     mapAsync(parallelism)(x ⇒ f(x).source()).source().map(_.flatMapConcat(x ⇒ x))

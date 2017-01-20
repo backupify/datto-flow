@@ -80,6 +80,15 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def flatMapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[Try[U]])(implicit ec: ExecutionContext) =
     use(flow.mapAsyncUnordered(defaultParallelism)(_.flatMapWithContextAsync(f)))
 
+  def mapAsyncOrdered[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
+    use(flow.mapAsync(defaultParallelism)(_.mapAsync(f)))
+  def flatMapAsyncOrdered[U](f: T ⇒ Future[Try[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
+    use(flow.mapAsync(defaultParallelism)(_.flatMapAsync(f)))
+  def mapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext) =
+    use(flow.mapAsync(defaultParallelism)(_.mapWithContextAsync(f)))
+  def flatMapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) ⇒ Future[Try[U]])(implicit ec: ExecutionContext) =
+    use(flow.mapAsync(defaultParallelism)(_.flatMapWithContextAsync(f)))
+
   def mapConcat[U](f: T ⇒ Iterable[U]): FlowBuilder[I, U, Ctx] = use(flow.mapConcat(_.mapConcat(f)))
   def mapConcatAsyncWithContext[U](f: (T, Ctx, Metadata) ⇒ Future[Iterable[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
     use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f))).mapConcat({ x ⇒ x })
