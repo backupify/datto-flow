@@ -103,6 +103,16 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int): FlowBuilder[I, T, Ctx] =
     use(flow.throttle(elements, per, maximumBurst, akka.stream.ThrottleMode.Shaping))
 
+  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
+    costCalculation: (T) ⇒ Int): FlowBuilder[I, T, Ctx] =
+    throttle(elements, per, maximumBurst, costCalculation, akka.stream.ThrottleMode.Shaping)
+
+  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
+    costCalculation: (T) ⇒ Int, mode: akka.stream.ThrottleMode): FlowBuilder[I, T, Ctx] = {
+    val costCalc = (res: FlowResult[T, Ctx]) ⇒ res.map(costCalculation).getOrElse(1)
+    use(flow.throttle(elements, per, maximumBurst, costCalc, mode))
+  }
+
   def addMetadata(entry: MetadataEntry) = use(flow.map(_.addMetadata(entry)))
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
   def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))

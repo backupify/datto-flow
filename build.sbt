@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version := "1.9.1"
+version in ThisBuild := "1.9.2"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -8,7 +8,6 @@ import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
 lazy val commonSettings = Seq(
   organization := "com.datto",
-  version := "0.0.1",
   scalaVersion := "2.11.8",
   scalacOptions ++= Seq(
     "-unchecked",
@@ -23,7 +22,15 @@ javaOptions in run += "-Xmx8G -XX:+PrintGC"
 val akkaV       = "2.4.14"
 val scalaTestV  = "3.0.1"
 
-lazy val root = (project in file(".")).
+lazy val root = project
+  .in(file("."))
+  .aggregate(
+    core,
+    testkit,
+    coreTests
+  )
+
+lazy val core = (project in file("core")).
   settings(commonSettings: _*).
   settings(
     name := "flow").
@@ -31,12 +38,34 @@ lazy val root = (project in file(".")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"      %% "akka-actor"                           % akkaV,
-        "com.typesafe.akka"      %% "akka-stream"                          % akkaV,
-        "org.scalatest"          %% "scalatest"                            % scalaTestV % "test",
-        "com.typesafe.akka"      %% "akka-testkit"                         % akkaV % "test"
+        "com.typesafe.akka"      %% "akka-stream"                          % akkaV
       )
     }
   )
+
+lazy val testkit = (project in file("testkit")).
+  settings(commonSettings: _*).
+  settings(
+    name := "flow-testkit").
+  settings(
+    libraryDependencies ++= {
+      Seq(
+        "org.scalatest"          %% "scalatest"                            % scalaTestV,
+        "com.typesafe.akka"      %% "akka-testkit"                         % akkaV
+      )
+    }
+  ).dependsOn(core)
+
+lazy val coreTests = (project in file("core-tests")).
+  settings(commonSettings: _*).
+  settings(
+    name := "flow-tests").
+  settings(
+    libraryDependencies ++= {
+      Seq()
+    }
+  ).dependsOn(core, testkit)
+
 
 lazy val stylePreferences = Seq(
   ScalariformKeys.preferences := ScalariformKeys.preferences.value
@@ -63,7 +92,7 @@ lazy val stylePreferences = Seq(
 
 publishMavenStyle := true
 
-publishTo := {
+publishTo in ThisBuild := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
     Some("snapshots" at nexus + "content/repositories/snapshots")
@@ -73,7 +102,7 @@ publishTo := {
 
 pomIncludeRepository := { _ => false }
 
-pomExtra := (
+pomExtra in ThisBuild := (
   <url>https://github.com/backupify/datto-flow</url>
   <licenses>
     <license>
