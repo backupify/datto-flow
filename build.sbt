@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version in ThisBuild := "1.10.1"
+version in ThisBuild := "1.10.2"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform

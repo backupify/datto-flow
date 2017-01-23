@@ -191,6 +191,12 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
     use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(groupMap).mapConcat(u ⇒ u))
   }
 
+  def mapResultGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Seq[FlowResult[U, Ctx]]) =
+    use(flow.grouped(n).map(f).mapConcat(u ⇒ u))
+
+  def mapResultAsyncGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]]) =
+    use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(f).mapConcat(u ⇒ u))
+
   def from[Mat](source: Source[FlowResult[I, Ctx], Mat]): Source[FlowResult[T, Ctx], Mat] =
     source.via(flow)
 
