@@ -65,29 +65,21 @@ object FlowBuilder {
 case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, Ctx], akka.NotUsed], defaultParallelism: Int) {
 
   // Methods that synchronously transform the underlying FlowResults
-  def map[U](f: T ⇒ U): FlowBuilder[I, U, Ctx] = use(flow.map(_.map(f)))
-  def flatMap[U](f: T ⇒ Try[U]): FlowBuilder[I, U, Ctx] = use(flow.map(_.flatMap(f)))
-  def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U) = use(flow.map(_.mapWithContext(f)))
-  def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]) = use(flow.map(_.flatMapWithContext(f)))
+  def map[U](f: T ⇒ U): FlowBuilder[I, U, Ctx] = mapResult(_.map(f))
+  def flatMap[U](f: T ⇒ Try[U]): FlowBuilder[I, U, Ctx] = mapResult(_.flatMap(f))
+  def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U) = mapResult(_.mapWithContext(f))
+  def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]) = mapResult(_.flatMapWithContext(f))
 
   // Methods that asynchronously transform the underlying FlowResults
   def mapAsync[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
     use(flow.mapAsyncUnordered(defaultParallelism)(_.mapAsync(f)))
-  def flatMapAsync[U](f: T ⇒ Future[Try[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
-    use(flow.mapAsyncUnordered(defaultParallelism)(_.flatMapAsync(f)))
   def mapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext) =
-    use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f)))
-  def flatMapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[Try[U]])(implicit ec: ExecutionContext) =
-    use(flow.mapAsyncUnordered(defaultParallelism)(_.flatMapWithContextAsync(f)))
+    mapResultAsync(_.mapWithContextAsync(f))
 
   def mapAsyncOrdered[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
     use(flow.mapAsync(defaultParallelism)(_.mapAsync(f)))
-  def flatMapAsyncOrdered[U](f: T ⇒ Future[Try[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
-    use(flow.mapAsync(defaultParallelism)(_.flatMapAsync(f)))
   def mapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext) =
     use(flow.mapAsync(defaultParallelism)(_.mapWithContextAsync(f)))
-  def flatMapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) ⇒ Future[Try[U]])(implicit ec: ExecutionContext) =
-    use(flow.mapAsync(defaultParallelism)(_.flatMapWithContextAsync(f)))
 
   def mapConcat[U](f: T ⇒ Iterable[U]): FlowBuilder[I, U, Ctx] = use(flow.mapConcat(_.mapConcat(f)))
   def mapConcatAsyncWithContext[U](f: (T, Ctx, Metadata) ⇒ Future[Iterable[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
@@ -125,12 +117,6 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def addMetadata(entry: MetadataEntry) = use(flow.map(_.addMetadata(entry)))
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
   def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))
-
-  def oldflatMapConcat[U](f: FlowResult[T, Ctx] ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
-    val sourceFlow: Flow[FlowResult[I, Ctx], Source[FlowResult[U, Ctx], Future[Unit]], akka.NotUsed] =
-      flow.mapAsyncUnordered(defaultParallelism)(res ⇒ f(res).source())
-    use(sourceFlow.flatMapConcat(x ⇒ x))
-  }
 
   @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf"))
   def flatMapConcat[U](f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
@@ -197,6 +183,12 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def mapResultAsyncGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]]) =
     use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(f).mapConcat(u ⇒ u))
 
+  def recover[U >: T](p: PartialFunction[Throwable, U]) = mapResult(_.recover(p))
+  def recoverWith[U >: T](p: PartialFunction[Throwable, Try[U]]) = mapResult(_.recoverWith(p))
+
+  def recoverAsync[U >: T](p: PartialFunction[Throwable, Future[U]])(implicit ec: ExecutionContext) =
+    mapResultAsync(_.recoverAsync(p))
+
   def from[Mat](source: Source[FlowResult[I, Ctx], Mat]): Source[FlowResult[T, Ctx], Mat] =
     source.via(flow)
 
@@ -204,7 +196,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
 
   def logResult(log: LoggingAdapter, prefix: String = "") =
     use(flow.map { res ⇒
-      log.debug(s"$prefix $res")
+      log.debug("{} {}", prefix, res)
       res
     })
 

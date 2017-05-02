@@ -83,13 +83,6 @@ class FlowBuilderTest extends TestKit(ActorSystem("FlowBuilder")) with FunSpecLi
         }
       }
 
-      it("should allow the value to be flat mapped") {
-        val outFuture = initialBuilder.flatMapAsync(x ⇒ Future.successful(Success(x + 1)))
-        whenReady(runFlow(1)(outFuture)) { res ⇒
-          assertResult(Success(2))(res.head.value)
-        }
-      }
-
       it("should allow the entire result to be mapped") {
         val outFuture = initialBuilder.mapWithContextAsync((i, ctx, _) ⇒ Future.successful(ctx * 3))
         whenReady(runFlow(1)(outFuture)) { res ⇒
