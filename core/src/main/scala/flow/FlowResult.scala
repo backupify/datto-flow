@@ -23,6 +23,7 @@ case class FlowResult[+T, Ctx](value: Try[T], context: Ctx, metadata: Metadata =
   def flatMap[U](f: T ⇒ Try[U]) = use(value.flatMap(f))
   def filter[U](f: T ⇒ Boolean) = use(value.filter(f))
   def recover[U >: T](f: PartialFunction[Throwable, U]) = use(value.recover(f))
+  def recoverWith[U >: T](f: PartialFunction[Throwable, Try[U]]) = use(value.recoverWith(f))
   def orElse[U >: T](default: ⇒ Try[U]) = use(value.orElse(default))
   def flatten[U](implicit ev: <:<[T, Try[U]]) = use(value.flatten)
   def getOrElse[U >: T](default: ⇒ U) = value.getOrElse(default)
@@ -31,10 +32,7 @@ case class FlowResult[+T, Ctx](value: Try[T], context: Ctx, metadata: Metadata =
   def isSuccess = value.isSuccess
 
   def mapAsync[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =
-    flatMapWithContextAsync((v, _, _) ⇒ f(v).map[Try[U]](v ⇒ Success(v)))
-
-  def flatMapAsync[U](f: T ⇒ Future[Try[U]])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =
-    flatMapWithContextAsync((v, _, _) ⇒ f(v))
+    mapWithContextAsync((v, _, _) ⇒ f(v))
 
   def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U): FlowResult[U, Ctx] = map(v ⇒ f(v, context, metadata))
 
@@ -45,21 +43,26 @@ case class FlowResult[+T, Ctx](value: Try[T], context: Ctx, metadata: Metadata =
     }
 
   def mapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =
-    flatMapWithContextAsync((v, c, m) ⇒ f(v, c, m).map[Try[U]](v ⇒ Success(v)))
-
-  def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]): FlowResult[U, Ctx] = flatMap(v ⇒ f(v, context, metadata))
-
-  def flatMapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[Try[U]])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =
     value match {
       case Success(v) ⇒
         f(v, context, metadata)
-          .recover { case e ⇒ Failure[U](e) }
+          .map(newV ⇒ Success(newV))
+          .recover { case e ⇒ Failure[U](e): Try[U] }
           .map(newV ⇒ FlowResult(this, newV, context, metadata))
       case Failure(e) ⇒ Future.successful(FlowResult(this, Failure[U](e), context, metadata))
     }
 
+  def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]): FlowResult[U, Ctx] = flatMap(v ⇒ f(v, context, metadata))
+
   def mapResultAsync[U](f: FlowResult[T, Ctx] ⇒ Future[FlowResult[U, Ctx]])(implicit ec: ExecutionContext): Future[FlowResult[U, Ctx]] =
     f(this).recover { case e ⇒ FlowResult(this, Failure[U](e), context, metadata) }
+
+  def recoverAsync[U >: T](p: PartialFunction[Throwable, Future[U]])(implicit ec: ExecutionContext) = mapResultAsync { res ⇒
+    res.value match {
+      case Failure(e) if p.isDefinedAt(e) ⇒ p(e).map(value ⇒ res.use(Success(value)))
+      case _                              ⇒ Future.successful(res)
+    }
+  }
 
   def addMetadata(entry: MetadataEntry) = ifSuccess(_ ⇒ FlowResult(this, value, context, metadata :+ entry))
 
