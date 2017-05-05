@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version in ThisBuild := "1.11.0"
+version in ThisBuild := "1.12.0"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -19,7 +19,7 @@ lazy val commonSettings = Seq(
 fork in run := true
 javaOptions in run += "-Xmx8G -XX:+PrintGC"
 
-val akkaV       = "2.4.17"
+val akkaV       = "2.5.1"
 val scalaTestV  = "3.0.1"
 
 lazy val root = project
@@ -82,11 +82,8 @@ lazy val stylePreferences = Seq(
     Wart.JavaConversions,
     Wart.ListOps,
     Wart.MutableDataStructures,
-    Wart.Nothing,
     Wart.Null,
-    Wart.Product,
     Wart.Return,
-    Wart.Serializable,
     Wart.TryPartial,
     Wart.Var))
 
@@ -101,6 +98,8 @@ publishTo in ThisBuild := {
 }
 
 pomIncludeRepository := { _ => false }
+
+publishArtifact in Test := false
 
 pomExtra in ThisBuild := (
   <url>https://github.com/backupify/datto-flow</url>

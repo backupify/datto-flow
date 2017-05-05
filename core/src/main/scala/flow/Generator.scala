@@ -105,5 +105,23 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
     mapAsync(parallelism)(x ⇒ f(x).source()).source().map(_.flatMapConcat(x ⇒ x))
   }
 
+  def classifyErrors[Out2 >: Out](classifier: PartialFunction[Throwable, Throwable])(implicit ec: ExecutionContext) = use { () ⇒
+    source()
+      .recoverWith(classifier.andThen(Future.failed))
+      .map(s ⇒ s.recoverWithRetries(1, {
+        case e if classifier.isDefinedAt(e) ⇒ Source.failed(classifier(e))
+      }))
+      .map(_.mapMaterializedValue { future ⇒
+        future.recoverWith(classifier.andThen(Future.failed))
+      })
+  }
+
+  def toSource(implicit ec: ExecutionContext): Source[T, Future[Out]] = Source.fromFutureSource(source()).mapMaterializedValue { ff ⇒
+    for {
+      f1 ← ff
+      f2 ← f1
+    } yield f2
+  }
+
   private def use[U, Out2](source: () ⇒ Future[Source[U, Future[Out2]]]) = new Generator(source)
 }

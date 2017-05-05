@@ -1,6 +1,7 @@
 package datto.flow
 
 import scala.concurrent._
+import scala.util.Failure
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -184,6 +185,32 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
     }
   }
 
+  describe("classifying errors") {
+    it("should modify the error of a failed future prior to the generator") {
+      val gen = Generator.future(Future.failed(new Exception)).classifyErrors {
+        case e ⇒ TestError()
+      }
+      val out = Await.ready(gen.runWith(Sink.seq), 5.seconds).value.get
+      assert(out == Failure(TestError()))
+    }
+
+    it("should modify the error of a failed materialized value") {
+      val gen = rawGenerator.flatMapMaterializedValue(_ ⇒ Future.failed(new Exception)).classifyErrors {
+        case e ⇒ TestError()
+      }
+      val out = Await.ready(gen.runWithMat(Sink.seq)(Keep.left), 5.seconds).value.get
+      assert(out == Failure(TestError()))
+    }
+
+    it("should modify the error of a generator that fails during the execution of the generator") {
+      val gen = rawGenerator.map(_ ⇒ throw new Exception).classifyErrors {
+        case e ⇒ TestError()
+      }
+      val out = Await.ready(gen.runWith(Sink.seq), 5.seconds).value.get
+      assert(out == Failure(TestError()))
+    }
+  }
+
   describe("generator implicits") {
     it("should be able to flatten a future generator") {
       val futureGen = Future.successful(Generator(Source.single(1)))
@@ -198,3 +225,5 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
     }
   }
 }
+
+case class TestError() extends Exception
