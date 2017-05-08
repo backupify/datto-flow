@@ -60,11 +60,11 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
   def flatMapMaterializedValue[Out2](f: Out ⇒ Future[Out2])(implicit ec: ExecutionContext) =
     use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.flatMap(f))))
 
-  def recoverMaterializedValue[Out2](p: PartialFunction[Throwable, Out2])(implicit ec: ExecutionContext) =
+  def recoverMaterializedValue[Out2 >: Out](p: PartialFunction[Throwable, Out2])(implicit ec: ExecutionContext): Generator[T, Out2] =
     use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.recover(p))))
 
-  def recoverWithMaterializedValue[Out2](p: PartialFunction[Throwable, Future[Out2]])(implicit ec: ExecutionContext) =
-    use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.recoverWith(p))))
+  def recoverWithMaterializedValue[Out2 >: Out](p: PartialFunction[Throwable, Future[Out2]])(implicit ec: ExecutionContext): Generator[T, Out2] =
+    use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.recoverWith[Out2](p))))
 
   def via[U](flow: Flow[T, U, akka.NotUsed])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.via(flow)))
