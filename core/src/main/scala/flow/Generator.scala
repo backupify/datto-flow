@@ -93,6 +93,8 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
   def concat[U >: T](other: Generator[U, _])(implicit ec: ExecutionContext): Generator[U, Out] =
     concatMat(other)(Keep.left)
 
+  def grouped(size: Int)(implicit ec: ExecutionContext): Generator[Seq[T], Out] = use(() ⇒ source().map(_.grouped(size)))
+
   def throttle(elements: Int, per: FiniteDuration = 1.second)(implicit ec: ExecutionContext): Generator[T, Out] =
     throttle(elements, per, elements)
 

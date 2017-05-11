@@ -211,6 +211,13 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
     }
   }
 
+  describe("grouped") {
+    it("should return groups of the specified size") {
+      val groups = wait(rawGenerator.concat(rawGenerator).concat(rawGenerator).grouped(2).runWith(Sink.seq))
+      assert(groups === Seq(Seq(1, 1), Seq(1)))
+    }
+  }
+
   describe("generator implicits") {
     it("should be able to flatten a future generator") {
       val futureGen = Future.successful(Generator(Source.single(1)))
