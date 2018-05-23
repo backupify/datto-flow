@@ -146,7 +146,7 @@ generator.to(Sink.ignore).map(_.run())
 ## Publishing this library
 
 0. Update the version in build.sbt, `git commit`, and create a tag using `git tag -a`
-1. Run `publishSigned` in sbt console, and enter the PGP key.
+1. Run `core/publishSigned` in sbt console, and enter the PGP key.
 2. Visit https://oss.sonatype.org/#welcome and log in.
 3. Select com.datto from the list of repositories, and click close.
 4. Wait a while and hit refresh.
