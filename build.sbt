@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version in ThisBuild := "1.12.4"
+version in ThisBuild := "1.12.5"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -19,7 +19,7 @@ lazy val commonSettings = Seq(
 fork in run := true
 javaOptions in run += "-Xmx8G -XX:+PrintGC"
 
-val akkaV       = "2.5.12"
+val akkaV       = "2.5.4"
 val scalaTestV  = "3.0.1"
 
 lazy val root = project
