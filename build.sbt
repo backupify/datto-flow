@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-version in ThisBuild := "1.12.5"
+version in ThisBuild := "1.13.0"
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
@@ -70,22 +70,24 @@ lazy val coreTests = (project in file("core-tests")).
 lazy val stylePreferences = Seq(
   ScalariformKeys.preferences := ScalariformKeys.preferences.value
     .setPreference(AlignSingleLineCaseStatements, true)
-    .setPreference(DoubleIndentClassDeclaration, true)
+    .setPreference(DoubleIndentConstructorArguments, true)
     .setPreference(DanglingCloseParenthesis, Prevent)
     .setPreference(RewriteArrowSymbols, true)
     .setPreference(PlaceScaladocAsterisksBeneathSecondAsterisk, true),
 
   wartremoverWarnings in (Compile, compile) ++= Seq(
-    Wart.Any2StringAdd,
+    Wart.StringPlusAny,
     Wart.AsInstanceOf,
     Wart.IsInstanceOf,
     Wart.JavaConversions,
-    Wart.ListOps,
+    Wart.TraversableOps,
     Wart.MutableDataStructures,
     Wart.Null,
     Wart.Return,
     Wart.TryPartial,
-    Wart.Var))
+    Wart.OptionPartial,
+    Wart.Var,
+    Wart.While))
 
 publishMavenStyle := true
 

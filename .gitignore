@@ -2,3 +2,4 @@
 .ensime_cache
 target
 lib_managed
+project/build.properties
