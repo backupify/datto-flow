@@ -118,7 +118,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
   def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))
 
-  @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf"))
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def flatMapConcat[U](f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
     val sourceFlow: Flow[FlowResult[I, Ctx], FlowResult[Source[FlowResult[U, Ctx], Future[Unit]], Ctx], akka.NotUsed] =
       mapWithContextAsync((value, ctx, md) ⇒ f(value, ctx, md).source()).flow
@@ -130,7 +130,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
     })
   }
 
-  @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf", "org.brianmckenna.wartremover.warts.TryPartial"))
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.TryPartial"))
   def flatMapGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] ⇒ Seq[Try[U]]) = {
     val groupMap: Seq[FlowResult[T, Ctx]] ⇒ Seq[FlowResult[U, Ctx]] = (irs: Seq[FlowResult[T, Ctx]]) ⇒ {
       val (successes, failures) = irs.partition(r ⇒ r.value.isSuccess)
@@ -151,7 +151,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
     use(flow.grouped(n).map(groupMap).mapConcat(u ⇒ u))
   }
 
-  @SuppressWarnings(Array("org.brianmckenna.wartremover.warts.AsInstanceOf", "org.brianmckenna.wartremover.warts.TryPartial"))
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.TryPartial"))
   def flatMapAsyncGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] ⇒ Future[Seq[Try[U]]])(implicit ec: ExecutionContext) = {
     val groupMap: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]] = (irs: Seq[FlowResult[T, Ctx]]) ⇒ {
       val (successes, failures) = irs.partition(r ⇒ r.value.isSuccess)

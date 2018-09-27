@@ -1,6 +1,6 @@
 package datto.flow
 
-import akka.stream.ActorMaterializer
+import akka.stream.{ ActorMaterializer, FlowShape, Graph }
 import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source }
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
@@ -65,6 +65,9 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
 
   def recoverWithMaterializedValue[Out2 >: Out](p: PartialFunction[Throwable, Future[Out2]])(implicit ec: ExecutionContext): Generator[T, Out2] =
     use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.recoverWith[Out2](p))))
+
+  def via[U](flow: Graph[FlowShape[T, U], akka.NotUsed])(implicit ec: ExecutionContext): Generator[U, Out] =
+    use(() ⇒ source().map(_.via(flow)))
 
   def via[U](flow: Flow[T, U, akka.NotUsed])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.via(flow)))
