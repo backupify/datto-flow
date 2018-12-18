@@ -72,6 +72,12 @@ class Generator[+T, +Out](val source: () ⇒ Future[Source[T, Future[Out]]]) {
   def via[U](flow: Flow[T, U, akka.NotUsed])(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.via(flow)))
 
+  def viaMat[U, Mat2, Mat3](flow: Graph[FlowShape[T, U], Mat2])(combine: (Future[Out], Mat2) ⇒ Future[Mat3])(implicit ec: ExecutionContext): Generator[U, Mat3] =
+    use(() ⇒ source().map(_.viaMat(flow)(combine)))
+
+  def viaMat[U, Mat2, Mat3](flow: Flow[T, U, Mat2])(combine: (Future[Out], Mat2) ⇒ Future[Mat3])(implicit ec: ExecutionContext): Generator[U, Mat3] =
+    use(() ⇒ source().map(_.viaMat(flow)(combine)))
+
   def toMat[Out2, Out3](sink: Sink[T, Out2])(combine: (Future[Out], Out2) ⇒ Out3)(implicit ec: ExecutionContext): Future[RunnableGraph[Out3]] =
     source().map(_.toMat(sink)(combine))
 
