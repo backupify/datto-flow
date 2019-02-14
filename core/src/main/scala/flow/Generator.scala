@@ -42,35 +42,51 @@ object Generator {
 
   def apply[T](
     source: Source[T, akka.NotUsed],
-    maybeOptions: Option[GeneratorOptions] = None)(
+    maybeOptions: Option[GeneratorOptions])(
     implicit
     ec: ExecutionContext): Generator[T, Unit] =
     Generator.Mat(toUnit(source), maybeOptions)
+
+  def apply[T](source: Source[T, akka.NotUsed])(
+    implicit
+    ec: ExecutionContext): Generator[T, Unit] = apply(source, None)
 
   def apply[T](stream: Stream[T], maybeOptions: Option[GeneratorOptions])(
     implicit
     ec: ExecutionContext): Generator[T, Unit] =
     Generator.Mat(toUnit(Source(stream)), maybeOptions)
 
+  def apply[T](stream: Stream[T])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    apply(stream, None)
+
   def empty[T](implicit ec: ExecutionContext) =
     Generator[T](Source.empty[T], None)
 
-  def single[T](item: T, maybeOptions: Option[GeneratorOptions])(
+  def single[T](item: T, maybeOptions: Option[GeneratorOptions] = None)(
     implicit
     ec: ExecutionContext) =
     Generator[T](Source.single(item), maybeOptions)
 
-  def iterator[T](it: () ⇒ Iterator[T], maybeOptions: Option[GeneratorOptions])(
+  def iterator[T](
+    it: () ⇒ Iterator[T],
+    maybeOptions: Option[GeneratorOptions] = None)(
     implicit
     ec: ExecutionContext) =
     Generator(Source.fromIterator(it), maybeOptions)
 
   def futureGenerator[T, Out](futureGen: ⇒ Future[Generator[T, Out]])(
     implicit
-    ec: ExecutionContext) =
-    Generator.Mat.future(
-      futureGen.flatMap(_.source()),
-      Some(GeneratorOptions.fromFuture(futureGen.map(gen ⇒ gen.maybeOptions))))
+    ec: ExecutionContext): Generator[T, Out] =
+    //TODO: For code review, let's take an extra close look at this.  I _think_ I am not making it evaluate futureGen
+    //any sooner than it otherwise would have, but I want another set of eyes
+    {
+      val evaluatedFutureGen = futureGen
+
+      Generator.Mat.future(
+        evaluatedFutureGen.flatMap(_.source()),
+        Some(GeneratorOptions.fromFuture(evaluatedFutureGen.map(gen ⇒
+          gen.maybeOptions))))
+    }
 
   def failed[T, Out](e: Throwable) =
     Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e), None)
@@ -255,17 +271,18 @@ class Generator[+T, +Out](
   def classifyErrors[Out2 >: Out](
     classifier: PartialFunction[Throwable, Throwable])(
     implicit
-    ec: ExecutionContext) = use { () ⇒
-    source()
-      .recoverWith(classifier.andThen(Future.failed))
-      .map(s ⇒
-        s.recoverWithRetries(1, {
-          case e if classifier.isDefinedAt(e) ⇒ Source.failed(classifier(e))
-        }))
-      .map(_.mapMaterializedValue { future ⇒
-        future.recoverWith(classifier.andThen(Future.failed))
-      })
-  }
+    ec: ExecutionContext) =
+    use { () ⇒
+      source()
+        .recoverWith(classifier.andThen(Future.failed))
+        .map(s ⇒
+          s.recoverWithRetries(1, {
+            case e if classifier.isDefinedAt(e) ⇒ Source.failed(classifier(e))
+          }))
+        .map(_.mapMaterializedValue { future ⇒
+          future.recoverWith(classifier.andThen(Future.failed))
+        })
+    }
 
   def toSource(implicit ec: ExecutionContext): Source[T, Future[Out]] =
     Source.fromFutureSource(source()).mapMaterializedValue { ff ⇒
