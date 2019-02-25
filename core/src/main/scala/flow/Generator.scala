@@ -2,6 +2,7 @@ package datto.flow
 
 import akka.stream.{ ActorMaterializer, FlowShape, Graph }
 import akka.stream.scaladsl.{ Flow, Keep, RunnableGraph, Sink, Source }
+
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.collection.immutable
@@ -12,11 +13,12 @@ object GeneratorOptions {
   def fromFuture(futureOptions: Future[Option[GeneratorOptions]])(
     implicit
     ec: ExecutionContext): GeneratorOptions =
-    GeneratorOptions(() ⇒
+    GeneratorOptions { () ⇒
       futureOptions.flatMap {
         case Some(options) ⇒ options.onShutdown()
-        case None          ⇒ Future({})
-      })
+        case None          ⇒ Future.successful({})
+      }
+    }
 }
 
 object Generator {
@@ -98,7 +100,7 @@ object Generator {
 }
 
 class Generator[+T, +Out](
-    val source: () ⇒ Future[Source[T, Future[Out]]],
+    private[flow] val source: () ⇒ Future[Source[T, Future[Out]]],
     val maybeOptions: Option[GeneratorOptions]) {
   def map[U](f: T ⇒ U)(implicit ec: ExecutionContext): Generator[U, Out] =
     use(() ⇒ source().map(_.map(f)))
@@ -126,6 +128,12 @@ class Generator[+T, +Out](
     ec: ExecutionContext) =
     use(() ⇒
       source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.flatMap(f))))
+
+  def recoverWith[U >: T, Out2 >: Out](
+    p: PartialFunction[Throwable, Future[Source[U, Future[Out2]]]])(
+    implicit
+    ec: ExecutionContext): Generator[U, Out2] =
+    use(() ⇒ source().recoverWith(p))
 
   def recoverMaterializedValue[Out2 >: Out](
     p: PartialFunction[Throwable, Out2])(
@@ -177,11 +185,13 @@ class Generator[+T, +Out](
     combine: (Future[Out], Future[Out2]) ⇒ Future[Out3])(
     implicit
     ec: ExecutionContext,
-    mat: ActorMaterializer): Future[Out3] = {
-    toMat(sink)(combine).flatMap(_.run()).andThen {
-      case _ ⇒ maybeOptions.foreach(_.onShutdown())
-    }
-  }
+    mat: ActorMaterializer): Future[Out3] =
+    toMat(sink)(combine)
+      .flatMap(_.run())
+      .andThen {
+        case _ ⇒
+          maybeOptions.foreach(_.onShutdown())
+      }
 
   def runWith[Out2](sink: Sink[T, Future[Out2]])(
     implicit
@@ -291,6 +301,11 @@ class Generator[+T, +Out](
         f2 ← f1
       } yield f2
     }
+
+  def mapSource[U, Out2](p: Source[T, Future[Out]] ⇒ Source[U, Future[Out2]])(
+    implicit
+    ec: ExecutionContext): Generator[U, Out2] =
+    use(() ⇒ source().map(p))
 
   private def use[U, Out2](source: () ⇒ Future[Source[U, Future[Out2]]]) =
     new Generator(source, maybeOptions)
