@@ -147,7 +147,8 @@ generator.to(Sink.ignore).map(_.run())
 
 0. Update the version in build.sbt, `git commit`, and create a tag using `git tag -a`
 1. Run `core/publishSigned` in sbt console, and enter the PGP key.
-2. Visit https://oss.sonatype.org/#welcome and log in.
-3. Select com.datto from the list of repositories, and click close.
-4. Wait a while and hit refresh.
-5. Select com.datto from the list of repositories, and click release (make sure automatically drop is selected).
+2. Rin `testkit/publishSigned` in sbt console, and enter the PGP key.
+3. Visit https://oss.sonatype.org/#welcome and log in.
+4. Select com.datto from the list of repositories, and click close. (Make sure to do for both flow and flow-testkit)
+5. Wait a while and hit refresh.
+6. Select com.datto from the list of repositories, and click release (make sure automatically drop is selected). (Make sure to do for both flow and flow-testkit)
