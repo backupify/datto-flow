@@ -95,10 +95,15 @@ class Generator[+T, +Out](private[flow] val source: () ⇒ Future[Source[T, Futu
   def flatMapMaterializedValue[Out2](f: Out ⇒ Future[Out2])(implicit ec: ExecutionContext) =
     use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.flatMap(f))))
 
-  def recoverWith[U >: T, Out2 >: Out](p: PartialFunction[Throwable, Future[Source[U, Future[Out2]]]])(
+  def recoverWithRetries[U >: T, Out2 >: Out](attempts: Int, p: PartialFunction[Throwable, Source[U, akka.NotUsed]])(
+      implicit ec: ExecutionContext): Generator[U, Out2] =
+    use(() ⇒ source().map(_.recoverWithRetries(attempts, p)))
+
+  //allows a recoverWith to be applied to instantiation of the source (which is a Future)
+  def recoverSourceWith[U >: T, Out2 >: Out](p: PartialFunction[Throwable, Future[Source[U, Future[Out2]]]])(
       implicit ec: ExecutionContext): Generator[U, Out2] =
     use(() ⇒ source().recoverWith(p))
-
+    
   def recoverMaterializedValue[Out2 >: Out](p: PartialFunction[Throwable, Out2])(
       implicit ec: ExecutionContext): Generator[T, Out2] =
     use(() ⇒ source().map(_.mapMaterializedValue(outFuture ⇒ outFuture.recover(p))))
@@ -192,14 +197,6 @@ class Generator[+T, +Out](private[flow] val source: () ⇒ Future[Source[T, Futu
         .map(_.mapMaterializedValue { future ⇒
           future.recoverWith(classifier.andThen(Future.failed))
         })
-    }
-
-  def toSource(implicit ec: ExecutionContext): Source[T, Future[Out]] =
-    Source.fromFutureSource(source()).mapMaterializedValue { ff ⇒
-      for {
-        f1 ← ff
-        f2 ← f1
-      } yield f2
     }
 
   def mapSource[U, Out2](p: Source[T, Future[Out]] ⇒ Source[U, Future[Out2]])(
