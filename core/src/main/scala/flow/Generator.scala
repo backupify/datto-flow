@@ -199,14 +199,6 @@ class Generator[+T, +Out](private[flow] val source: () ⇒ Future[Source[T, Futu
         })
     }
 
-  def toSource(implicit ec: ExecutionContext): Source[T, Future[Out]] =
-    Source.fromFutureSource(source()).mapMaterializedValue { ff ⇒
-      for {
-        f1 ← ff
-        f2 ← f1
-      } yield f2
-    }
-
   def mapSource[U, Out2](p: Source[T, Future[Out]] ⇒ Source[U, Future[Out2]])(
       implicit ec: ExecutionContext): Generator[U, Out2] =
     use(() ⇒ source().map(p))
