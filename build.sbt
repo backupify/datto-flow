@@ -1,14 +1,15 @@
-scalaVersion in ThisBuild := "2.11.8"
+lazy val scala212 = "2.12.8"
+lazy val scala211 = "2.11.12"
+
+scalaVersion in ThisBuild := scala212
 
 version in ThisBuild := "1.14.1"
 
-import scalariform.formatter.preferences._
-import com.typesafe.sbt.SbtScalariform
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+lazy val supportedScalaVersions = List(scala211, scala212)
 
 lazy val commonSettings = Seq(
   organization := "com.datto",
-  scalaVersion := "2.11.8",
+  scalaVersion := scala212,
   scalacOptions ++= Seq(
     "-unchecked",
     "-deprecation",
@@ -28,13 +29,19 @@ lazy val root = project
     core,
     testkit,
     coreTests
+  ).settings(
+    // crossScalaVersions must be set to Nil on the aggregating project
+    crossScalaVersions := Nil,
+    publish / skip := true
   )
+
 
 lazy val core = (project in file("core")).
   settings(commonSettings: _*).
   settings(
     name := "flow").
   settings(
+    crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"      %% "akka-actor"                           % akkaV,
@@ -48,6 +55,7 @@ lazy val testkit = (project in file("testkit")).
   settings(
     name := "flow-testkit").
   settings(
+    crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= {
       Seq(
         "org.scalatest"          %% "scalatest"                            % scalaTestV,
@@ -68,13 +76,6 @@ lazy val coreTests = (project in file("core-tests")).
 
 
 lazy val stylePreferences = Seq(
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-    .setPreference(AlignSingleLineCaseStatements, true)
-    .setPreference(DoubleIndentConstructorArguments, true)
-    .setPreference(DanglingCloseParenthesis, Prevent)
-    .setPreference(RewriteArrowSymbols, true)
-    .setPreference(PlaceScaladocAsterisksBeneathSecondAsterisk, true),
-
   wartremoverWarnings in (Compile, compile) ++= Seq(
     Wart.StringPlusAny,
     Wart.AsInstanceOf,
