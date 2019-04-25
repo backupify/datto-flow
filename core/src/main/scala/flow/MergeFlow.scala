@@ -65,10 +65,11 @@ import akka.stream._
   *     (negativeIntFlow, _ < 0)
   *   )
   */
-
 object MergeFlow {
 
-  def withContext[A, B, Ctx](flowPredicatePairs: (ContextFlow[A, B, Ctx], (A, Ctx, Metadata) ⇒ Boolean)*): ContextFlow[A, B, Ctx] = {
+  def withContext[A, B, Ctx](
+      flowPredicatePairs: (ContextFlow[A, B, Ctx], (A, Ctx, Metadata) ⇒ Boolean)*
+  ): ContextFlow[A, B, Ctx] = {
     val errorPropogatingFlow: ContextFlow[A, B, Ctx] =
       FlowBuilder[A, Ctx](1).filter(_.isFailure).flow.map(_.asInstanceOf[FlowResult[B, Ctx]])
 
@@ -89,14 +90,13 @@ object MergeFlow {
       case (flow, predicate) ⇒ (flow, (value: A, context: Ctx, md: Metadata) ⇒ predicate(value))
     }: _*)
 
-  def merge[A, B, Ctx](flows: ContextFlow[A, B, Ctx]*): ContextFlow[A, B, Ctx] = {
+  def merge[A, B, Ctx](flows: ContextFlow[A, B, Ctx]*): ContextFlow[A, B, Ctx] =
     Flow.fromGraph(GraphDSL.create() { implicit b ⇒
       import GraphDSL.Implicits._
       val broadcast = b.add(Broadcast[FlowResult[A, Ctx]](flows.length))
-      val merge = b.add(Merge[FlowResult[B, Ctx]](flows.length))
+      val merge     = b.add(Merge[FlowResult[B, Ctx]](flows.length))
 
       flows.zipWithIndex.foreach(pair ⇒ broadcast.out(pair._2) ~> pair._1 ~> merge.in(pair._2))
       FlowShape(broadcast.in, merge.out)
     })
-  }
 }

@@ -1,22 +1,25 @@
 package datto.flow
 
 import akka.stream.scaladsl.Source
-import scala.concurrent.{ Future, ExecutionContext }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 object GeneratorImplicits {
   private[flow] case class WrappedFutureGenerator[+T, +Out](gen: Future[Generator[T, Out]])(
-      implicit ec: ExecutionContext) {
+      implicit ec: ExecutionContext
+  ) {
     def flatten: Generator[T, Out] = Generator.futureGenerator(gen)
   }
 
   private[flow] case class WrappedFutureSourceMat[+T, +Out](source: Future[Source[T, Future[Out]]])(
-      implicit ec: ExecutionContext) {
+      implicit ec: ExecutionContext
+  ) {
     def generator: Generator[T, Out] = Generator.Mat.future(source, None)
   }
 
   private[flow] case class WrappedFutureSource[+T](source: Future[Source[T, akka.NotUsed]])(
-      implicit ec: ExecutionContext) {
+      implicit ec: ExecutionContext
+  ) {
     def generator: Generator[T, Unit] = Generator.future(source, None)
   }
 

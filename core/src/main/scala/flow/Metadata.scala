@@ -5,9 +5,9 @@ trait MetadataEntry
 case class Metadata(entries: Seq[MetadataEntry]) extends Seq[MetadataEntry] {
   import scala.reflect.ClassTag
 
-  def iterator = entries.iterator
+  def iterator          = entries.iterator
   def apply(index: Int) = entries(index)
-  def length = entries.length
+  def length            = entries.length
 
   def ofType[T <: MetadataEntry](implicit ev: ClassTag[T]): Seq[T] = entries.flatMap {
     case entry: T ⇒ Some(entry)

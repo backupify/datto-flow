@@ -1,12 +1,12 @@
 package datto.flow
 
 import akka.event.LoggingAdapter
-import akka.stream.scaladsl.{ Flow, Source }
+import akka.stream.scaladsl.{Flow, Source}
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.{ Failure, Success, Try }
-import collection.immutable.{ Iterable, Seq }
+import scala.util.{Failure, Success, Try}
+import collection.immutable.{Iterable, Seq}
 
 /**
   * A FlowBuilder provides tools for cunstructing an akka.stream Flow that transforms a
@@ -38,6 +38,7 @@ import collection.immutable.{ Iterable, Seq }
   *   - retrieves the underlying akka.stream Flow.
   */
 object FlowBuilder {
+
   /**
     * Return an empty (identity transformation) FlowBuilder in which the initial type
     *  and the context type are the same.
@@ -62,12 +63,15 @@ object FlowBuilder {
   private val defaultParallelism = 4
 }
 
-case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, Ctx], akka.NotUsed], defaultParallelism: Int) {
+case class FlowBuilder[I, T, Ctx](
+    flow: Flow[FlowResult[I, Ctx], FlowResult[T, Ctx], akka.NotUsed],
+    defaultParallelism: Int
+) {
 
   // Methods that synchronously transform the underlying FlowResults
-  def map[U](f: T ⇒ U): FlowBuilder[I, U, Ctx] = mapResult(_.map(f))
-  def flatMap[U](f: T ⇒ Try[U]): FlowBuilder[I, U, Ctx] = mapResult(_.flatMap(f))
-  def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U) = mapResult(_.mapWithContext(f))
+  def map[U](f: T ⇒ U): FlowBuilder[I, U, Ctx]              = mapResult(_.map(f))
+  def flatMap[U](f: T ⇒ Try[U]): FlowBuilder[I, U, Ctx]     = mapResult(_.flatMap(f))
+  def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U)          = mapResult(_.mapWithContext(f))
   def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]) = mapResult(_.flatMapWithContext(f))
 
   // Methods that asynchronously transform the underlying FlowResults
@@ -82,8 +86,12 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
     use(flow.mapAsync(defaultParallelism)(_.mapWithContextAsync(f)))
 
   def mapConcat[U](f: T ⇒ Iterable[U]): FlowBuilder[I, U, Ctx] = use(flow.mapConcat(_.mapConcat(f)))
-  def mapConcatAsyncWithContext[U](f: (T, Ctx, Metadata) ⇒ Future[Iterable[U]])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
-    use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f))).mapConcat({ x ⇒ x })
+  def mapConcatAsyncWithContext[U](
+      f: (T, Ctx, Metadata) ⇒ Future[Iterable[U]]
+  )(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
+    use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f))).mapConcat({ x ⇒
+      x
+    })
 
   def mapResult[U](f: FlowResult[T, Ctx] ⇒ FlowResult[U, Ctx]) = use(flow.map(f))
   def mapResultAsync[U](f: FlowResult[T, Ctx] ⇒ Future[FlowResult[U, Ctx]])(implicit ec: ExecutionContext) =
@@ -104,22 +112,33 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int): FlowBuilder[I, T, Ctx] =
     use(flow.throttle(elements, per, maximumBurst, akka.stream.ThrottleMode.Shaping))
 
-  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
-    costCalculation: (T) ⇒ Int): FlowBuilder[I, T, Ctx] =
+  def throttle(
+      elements: Int,
+      per: FiniteDuration,
+      maximumBurst: Int,
+      costCalculation: (T) ⇒ Int
+  ): FlowBuilder[I, T, Ctx] =
     throttle(elements, per, maximumBurst, costCalculation, akka.stream.ThrottleMode.Shaping)
 
-  def throttle(elements: Int, per: FiniteDuration, maximumBurst: Int,
-    costCalculation: (T) ⇒ Int, mode: akka.stream.ThrottleMode): FlowBuilder[I, T, Ctx] = {
+  def throttle(
+      elements: Int,
+      per: FiniteDuration,
+      maximumBurst: Int,
+      costCalculation: (T) ⇒ Int,
+      mode: akka.stream.ThrottleMode
+  ): FlowBuilder[I, T, Ctx] = {
     val costCalc = (res: FlowResult[T, Ctx]) ⇒ res.map(costCalculation).getOrElse(1)
     use(flow.throttle(elements, per, maximumBurst, costCalc, mode))
   }
 
-  def addMetadata(entry: MetadataEntry) = use(flow.map(_.addMetadata(entry)))
+  def addMetadata(entry: MetadataEntry)        = use(flow.map(_.addMetadata(entry)))
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
-  def addMetadata(f: T ⇒ MetadataEntry) = use(flow.map(_.addMetadata(f)))
+  def addMetadata(f: T ⇒ MetadataEntry)        = use(flow.map(_.addMetadata(f)))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def flatMapConcat[U](f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
+  def flatMapConcat[U](
+      f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit]
+  )(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
     val sourceFlow: Flow[FlowResult[I, Ctx], FlowResult[Source[FlowResult[U, Ctx], Future[Unit]], Ctx], akka.NotUsed] =
       mapWithContextAsync((value, ctx, md) ⇒ f(value, ctx, md).source()).flow
     use(sourceFlow.flatMapConcat { sourceResult ⇒
@@ -137,12 +156,14 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
       val transformedSuccesses: Seq[FlowResult[U, Ctx]] =
         successes.length match {
           case 0 ⇒ Seq[FlowResult[U, Ctx]]()
-          case _ ⇒ Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
-            case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
-          }) match {
-            case Success(result) ⇒ result
-            case Failure(e)      ⇒ successes.map(success ⇒ FlowResult[U, Ctx](Failure[U](e), success.context, success.metadata))
-          }
+          case _ ⇒
+            Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
+              case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
+            }) match {
+              case Success(result) ⇒ result
+              case Failure(e) ⇒
+                successes.map(success ⇒ FlowResult[U, Ctx](Failure[U](e), success.context, success.metadata))
+            }
         }
 
       transformedSuccesses ++ failures.asInstanceOf[Seq[FlowResult[U, Ctx]]]
@@ -152,7 +173,9 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.TryPartial"))
-  def flatMapAsyncGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] ⇒ Future[Seq[Try[U]]])(implicit ec: ExecutionContext) = {
+  def flatMapAsyncGrouped[U](
+      n: Int
+  )(f: Seq[(T, Ctx, Metadata)] ⇒ Future[Seq[Try[U]]])(implicit ec: ExecutionContext) = {
     val groupMap: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]] = (irs: Seq[FlowResult[T, Ctx]]) ⇒ {
       val (successes, failures) = irs.partition(r ⇒ r.value.isSuccess)
 
@@ -160,16 +183,20 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
       val transformedSuccesses: Future[Seq[FlowResult[U, Ctx]]] =
         successes.length match {
           case 0 ⇒ Future.successful(Seq[FlowResult[U, Ctx]]())
-          case _ ⇒ Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
-            case (results, originals) ⇒ results.zip(originals).map {
-              case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
+          case _ ⇒
+            Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
+              case (results, originals) ⇒
+                results.zip(originals).map {
+                  case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
+                }
+            }) match {
+              case Success(result) ⇒
+                result.recover({
+                  case e: Throwable ⇒ successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata))
+                })
+              case Failure(e) ⇒
+                Future.successful(successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata)))
             }
-          }) match {
-            case Success(result) ⇒ result.recover({
-              case e: Throwable ⇒ successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata))
-            })
-            case Failure(e) ⇒ Future.successful(successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata)))
-          }
         }
       transformedSuccesses.map(_ ++ failures.asInstanceOf[Seq[FlowResult[U, Ctx]]])
     }
@@ -183,7 +210,7 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
   def mapResultAsyncGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]]) =
     use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(f).mapConcat(u ⇒ u))
 
-  def recover[U >: T](p: PartialFunction[Throwable, U]) = mapResult(_.recover(p))
+  def recover[U >: T](p: PartialFunction[Throwable, U])          = mapResult(_.recover(p))
   def recoverWith[U >: T](p: PartialFunction[Throwable, Try[U]]) = mapResult(_.recoverWith(p))
 
   def recoverAsync[U >: T](p: PartialFunction[Throwable, Future[U]])(implicit ec: ExecutionContext) =
@@ -200,5 +227,6 @@ case class FlowBuilder[I, T, Ctx](flow: Flow[FlowResult[I, Ctx], FlowResult[T, C
       res
     })
 
-  private def use[U, NCtx](flow: Flow[FlowResult[I, NCtx], FlowResult[U, NCtx], akka.NotUsed]) = FlowBuilder(flow, defaultParallelism)
+  private def use[U, NCtx](flow: Flow[FlowResult[I, NCtx], FlowResult[U, NCtx], akka.NotUsed]) =
+    FlowBuilder(flow, defaultParallelism)
 }
