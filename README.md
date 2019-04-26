@@ -145,10 +145,51 @@ generator.to(Sink.ignore).map(_.run())
 
 ## Publishing this library
 
-0. Update the version in build.sbt, `git commit`, and create a tag using `git tag -a`
-1. Run `core/publishSigned` in sbt console, and enter the PGP key.
-2. Rin `testkit/publishSigned` in sbt console, and enter the PGP key.
-3. Visit https://oss.sonatype.org/#welcome and log in.
-4. Select com.datto from the list of repositories, and click close. (Make sure to do for both flow and flow-testkit)
-5. Wait a while and hit refresh.
-6. Select com.datto from the list of repositories, and click release (make sure automatically drop is selected). (Make sure to do for both flow and flow-testkit)
+First, make sure you're set up to publish. See https://github.com/xerial/sbt-sonatype for more info:
+
+1 . Add the file ~/.sbt/1.0/sonatype.sbt with contents:
+
+``` scala
+credentials += Credentials("Sonatype Nexus Repository Manager",
+                           "oss.sonatype.org",
+                           "<username>",
+                           "<password>")
+
+```
+
+
+And the file ~/.sbt/1.0/plugins/plugins.sbt with contents:
+
+
+``` scala
+addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")
+addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "2.4")
+```
+
+Follow the steps on https://www.scala-sbt.org/0.13/docs/Using-Sonatype.html to generate a gpg key for yourself. Make sure you publish the key. Run the following in sbt to do so:
+
+```
+pgp-cmd gen-key
+Please enter the name associated with the key: Desmond Yeung
+Please enter the email associated with the key: dyeung@datto.com
+Please enter the passphrase for the key: *************
+Please re-enter the passphrase for the key: *************
+
+```
+
+Send your key: `pgp-cmd send-key dyeung@datto.com http://keys.gnupg.net:11371`
+
+Now, you are ready to publish a version:
+
+1. Update the version in build.sbt, `git commit`, and create a tag using `git tag -a`
+1. Run `+ core/publishSigned` in sbt console, and enter the PGP key. Make sure to include the `+` sign! This is for crossbuilding both scala 2.11 and 2.12.
+1. Run `sonatypeRelease`
+1. `+ testkit/publishSigned`
+1. `sonatypeRelease`
+
+Manually releasing on sonatype:
+
+1. Visit https://oss.sonatype.org/#welcome and log in.
+1. Select com.datto from the list of repositories, and click close. (Make sure to do for both flow and flow-testkit)
+1. Wait a while and hit refresh.
+1. Select com.datto from the list of repositories, and click release (make sure automatically drop is selected). (Make sure to do for both flow and flow-testkit)

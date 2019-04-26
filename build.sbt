@@ -3,7 +3,7 @@ lazy val scala211 = "2.11.12"
 
 scalaVersion in ThisBuild := scala212
 
-version in ThisBuild := "1.14.1"
+version in ThisBuild := "1.14.2"
 
 lazy val supportedScalaVersions = List(scala211, scala212)
 
@@ -103,6 +103,8 @@ publishTo in ThisBuild := {
 pomIncludeRepository := { _ => false }
 
 publishArtifact in Test := false
+
+sonatypeProfileName := "com.datto"
 
 pomExtra in ThisBuild := (
   <url>https://github.com/backupify/datto-flow</url>
