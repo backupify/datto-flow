@@ -33,7 +33,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
     }
 
     it("should be creatable from future source") {
-      val (items, mat) = runGenerator(Generator.future(Future(Source.single(1))))
+      val (items, mat) = runGenerator(Generator.future(() => Future(Source.single(1))))
       assert(items === List(1))
       assert(mat === {})
     }
@@ -70,9 +70,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
     }
 
     it("should be creatable from a Future") {
-      val gen = Generator.Mat.future {
-        Future { rawSource }
-      }
+      val gen = Generator.Mat.future(() => Future(rawSource))
 
       val (items, mat) = runGenerator(gen)
       assert(items === List(1))
@@ -81,7 +79,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
     it("should lazily evaluate the Future within the generator setup") {
       var x = 0
-      val gen = Generator.Mat.future {
+      val gen = Generator.Mat.future { () =>
         Future {
           x = 1
           rawSource
@@ -133,7 +131,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
   describe("combining generators") {
     describe("orElse") {
       it("should replace a failing generator with a successful one") {
-        val generator = Generator.Mat.future[Int, Int](Future.failed(new Exception(""))).orElse(rawGenerator)
+        val generator = Generator.Mat.future[Int, Int](() => Future.failed(new Exception(""))).orElse(rawGenerator)
         val (items, mat) = runGenerator(generator)
         assert(items === List(1))
         assert(mat === -1)
@@ -187,7 +185,7 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
   describe("classifying errors") {
     it("should modify the error of a failed future prior to the generator") {
-      val gen = Generator.future(Future.failed(new Exception)).classifyErrors {
+      val gen = Generator.future(() => Future.failed(new Exception)).classifyErrors {
         case e ⇒ TestError()
       }
       val out = Await.ready(gen.runWith(Sink.seq), 5.seconds).value.get
@@ -220,8 +218,9 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
   describe("generator implicits") {
     it("should be able to flatten a future generator") {
-      val futureGen = Future.successful(Generator(Source.single(1)))
-      val res = wait(futureGen.flatten.runWith(Sink.ignore))
+      val futureGen: Future[Generator[Int, Unit]] = Future.successful(Generator(Source.single(1)))
+      val flattened: Generator[Int, Unit] = futureGen.generator
+      val res = wait(flattened.runWith(Sink.ignore))
       assert(res === akka.Done)
     }
 
