@@ -6,87 +6,45 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.collection.immutable
 
-case class GeneratorOptions(onShutdown: () ⇒ Future[Unit]) {
-  def combine(other: GeneratorOptions)(implicit ec: ExecutionContext): GeneratorOptions =
-    GeneratorOptions { () ⇒
-      onShutdown().flatMap(_ ⇒ other.onShutdown())
-    }
-}
-
-object GeneratorOptions {
-  def fromFuture(futureOptions: Future[Option[GeneratorOptions]])(implicit ec: ExecutionContext): GeneratorOptions =
-    GeneratorOptions { () ⇒
-      futureOptions.flatMap {
-        case Some(options) ⇒ options.onShutdown()
-        case None          ⇒ Future.successful({})
-      }
-    }
-}
-
 object Generator {
-
   object Mat {
-    def future[T, Out](
-        sourceBuilder: ⇒ Future[Source[T, Future[Out]]],
-        maybeOptions: Option[GeneratorOptions] = None
-    ): Generator[T, Out] =
-      new Generator(() ⇒ sourceBuilder, maybeOptions)
+    def future[T, Out](sourceBuilder: ⇒ Future[Source[T, Future[Out]]]): Generator[T, Out] =
+      new Generator(() ⇒ sourceBuilder)
 
-    def apply[T, Out](
-        source: ⇒ Source[T, Future[Out]],
-        maybeOptions: Option[GeneratorOptions] = None
-    ): Generator[T, Out] =
-      Generator.Mat.future(Future.successful(source), maybeOptions)
+    def apply[T, Out](source: ⇒ Source[T, Future[Out]]): Generator[T, Out] =
+      Generator.Mat.future(Future.successful(source))
   }
 
-  def future[T](sourceBuilder: ⇒ Future[Source[T, akka.NotUsed]], maybeOptions: Option[GeneratorOptions] = None)(
-      implicit ec: ExecutionContext
-  ): Generator[T, Unit] =
-    new Generator(() ⇒ sourceBuilder.map(toUnit), maybeOptions)
+  def future[T](sourceBuilder: ⇒ Future[Source[T, akka.NotUsed]])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    new Generator(() ⇒ sourceBuilder.map(toUnit))
 
-  def apply[T](source: Source[T, akka.NotUsed], maybeOptions: Option[GeneratorOptions])(
-      implicit ec: ExecutionContext
-  ): Generator[T, Unit] =
-    Generator.Mat(toUnit(source), maybeOptions)
+  def apply[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    Generator.Mat(toUnit(source))
 
-  def apply[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] = apply(source, None)
+  def apply[T](stream: Stream[T])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    Generator.Mat(toUnit(Source(stream)))
 
-  def apply[T](stream: Stream[T], maybeOptions: Option[GeneratorOptions])(
-      implicit ec: ExecutionContext
-  ): Generator[T, Unit] =
-    Generator.Mat(toUnit(Source(stream)), maybeOptions)
+  def empty[T](implicit ec: ExecutionContext) = Generator[T](Source.empty[T])
 
-  def apply[T](stream: Stream[T])(implicit ec: ExecutionContext): Generator[T, Unit] = apply(stream, None)
+  def single[T](item: T)(implicit ec: ExecutionContext) =
+    Generator[T](Source.single(item))
 
-  def empty[T](implicit ec: ExecutionContext) = Generator[T](Source.empty[T], None)
+  def iterator[T](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
+    Generator(Source.fromIterator(it))
 
-  def single[T](item: T, maybeOptions: Option[GeneratorOptions] = None)(implicit ec: ExecutionContext) =
-    Generator[T](Source.single(item), maybeOptions)
-
-  def iterator[T](it: () ⇒ Iterator[T], maybeOptions: Option[GeneratorOptions] = None)(implicit ec: ExecutionContext) =
-    Generator(Source.fromIterator(it), maybeOptions)
-
-  def futureGenerator[T, Out](
-      futureGen: ⇒ Future[Generator[T, Out]]
-  )(implicit ec: ExecutionContext): Generator[T, Out] = {
+  def futureGenerator[T, Out](futureGen: ⇒ Future[Generator[T, Out]])(implicit ec: ExecutionContext): Generator[T, Out] = {
     val evaluatedFutureGen = futureGen
 
-    Generator.Mat.future(
-      evaluatedFutureGen.flatMap(_.source()),
-      Some(GeneratorOptions.fromFuture(evaluatedFutureGen.map(gen ⇒ gen.maybeOptions)))
-    )
+    Generator.Mat.future(evaluatedFutureGen.flatMap(_.source()))
   }
 
-  def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e), None)
+  def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e))
 
   private def toUnit[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Source[T, Future[Unit]] =
     source.mapMaterializedValue(_ ⇒ Future.successful({}))
 }
 
-class Generator[+T, +Out](
-    private[flow] val source: () ⇒ Future[Source[T, Future[Out]]],
-    val maybeOptions: Option[GeneratorOptions]
-) {
+class Generator[+T, +Out](private[flow] val source: () ⇒ Future[Source[T, Future[Out]]]) {
   def map[U](f: T ⇒ U)(implicit ec: ExecutionContext): Generator[U, Out] = use(() ⇒ source().map(_.map(f)))
 
   def mapAsync[U](parallelism: Int)(f: T ⇒ Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =
@@ -153,17 +111,12 @@ class Generator[+T, +Out](
   )(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Out3] =
     toMat(sink)(combine)
       .flatMap(_.run())
-      .andThen {
-        case _ ⇒
-          maybeOptions.foreach(_.onShutdown())
-      }
 
   def runWith[Out2](sink: Sink[T, Future[Out2]])(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Out2] =
     runWithMat(sink)(Keep.right)
 
   def orElse[U >: T, Out2 >: Out](other: Generator[U, Out2])(implicit ec: ExecutionContext): Generator[U, Out2] =
     use(() ⇒ source().recoverWith { case _ ⇒ other.source() })
-      .maybeMergeOptions(other.maybeOptions)
 
   def concatMat[U >: T, Out2, Out3](
       other: Generator[U, Out2]
@@ -174,7 +127,7 @@ class Generator[+T, +Out](
           source1 ← source()
           source2 ← other.source()
         } yield source1.concatMat(source2)(combine)
-    ).maybeMergeOptions(other.maybeOptions)
+    )
 
   def filter(predicate: T ⇒ Boolean)(implicit ec: ExecutionContext) = use(() ⇒ source().map(_.filter(predicate)))
 
@@ -229,14 +182,6 @@ class Generator[+T, +Out](
   )(implicit ec: ExecutionContext): Generator[U, Out2] =
     use(() ⇒ source().map(p))
 
-  private def use[U, Out2](source: () ⇒ Future[Source[U, Future[Out2]]]) = new Generator(source, maybeOptions)
+  private def use[U, Out2](source: () ⇒ Future[Source[U, Future[Out2]]]) = new Generator(source)
 
-  private def maybeMergeOptions(maybeOtherOptions: Option[GeneratorOptions])(implicit ec: ExecutionContext) =
-    new Generator(source, (maybeOptions, maybeOtherOptions) match {
-      case (None, None)          ⇒ None
-      case (Some(options), None) ⇒ Some(options)
-      case (None, Some(options)) ⇒ Some(options)
-      case (Some(options), Some(otherOptions)) ⇒
-        Some(options.combine(otherOptions))
-    })
 }

@@ -220,8 +220,9 @@ class GeneratorTest extends TestKit(ActorSystem("GeneratorTest")) with FunSpecLi
 
   describe("generator implicits") {
     it("should be able to flatten a future generator") {
-      val futureGen = Future.successful(Generator(Source.single(1)))
-      val res = wait(futureGen.flatten.runWith(Sink.ignore))
+      val futureGen: Future[Generator[Int, Unit]] = Future.successful(Generator(Source.single(1)))
+      val flattened: Generator[Int, Unit] = futureGen.generator
+      val res = wait(flattened.runWith(Sink.ignore))
       assert(res === akka.Done)
     }
 
