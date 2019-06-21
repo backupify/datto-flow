@@ -3,7 +3,7 @@ lazy val scala211 = "2.11.12"
 
 scalaVersion in ThisBuild := scala212
 
-version in ThisBuild := "1.14.2"
+version in ThisBuild := "2.0.0"
 
 lazy val supportedScalaVersions = List(scala211, scala212)
 
