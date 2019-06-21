@@ -8,15 +8,15 @@ import scala.collection.immutable
 
 object Generator {
   object Mat {
-    def future[T, Out](sourceBuilder: ⇒ Future[Source[T, Future[Out]]]): Generator[T, Out] =
-      new Generator(() ⇒ sourceBuilder)
+    def future[T, Out](sourceBuilder: () ⇒ Future[Source[T, Future[Out]]]): Generator[T, Out] =
+      new Generator(sourceBuilder)
 
     def apply[T, Out](source: ⇒ Source[T, Future[Out]]): Generator[T, Out] =
-      Generator.Mat.future(Future.successful(source))
+      Generator.Mat.future(() => Future.successful(source))
   }
 
-  def future[T](sourceBuilder: ⇒ Future[Source[T, akka.NotUsed]])(implicit ec: ExecutionContext): Generator[T, Unit] =
-    new Generator(() ⇒ sourceBuilder.map(toUnit))
+  def future[T](sourceBuilder: () ⇒ Future[Source[T, akka.NotUsed]])(implicit ec: ExecutionContext): Generator[T, Unit] =
+    new Generator(() ⇒ sourceBuilder().map(toUnit))
 
   def apply[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Generator[T, Unit] =
     Generator.Mat(toUnit(source))
@@ -32,13 +32,18 @@ object Generator {
   def iterator[T](it: () ⇒ Iterator[T])(implicit ec: ExecutionContext) =
     Generator(Source.fromIterator(it))
 
-  def futureGenerator[T, Out](futureGen: ⇒ Future[Generator[T, Out]])(implicit ec: ExecutionContext): Generator[T, Out] = {
+  @deprecated("prefer `futureGenerator` which does not eagerly evaluate the future", "datto-flow 2.0.0")
+  def futureGeneratorEager[T, Out](futureGen: ⇒ Future[Generator[T, Out]])(implicit ec: ExecutionContext): Generator[T, Out] = {
     val evaluatedFutureGen = futureGen
 
-    Generator.Mat.future(evaluatedFutureGen.flatMap(_.source()))
+    Generator.Mat.future(() => evaluatedFutureGen.flatMap(_.source()))
   }
 
-  def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](Future.failed[Source[T, Future[Out]]](e))
+  def futureGenerator[T, Out](futureGen: () ⇒ Future[Generator[T, Out]])(implicit ec: ExecutionContext): Generator[T, Out] = {
+    Generator.Mat.future(() => futureGen().flatMap(_.source()))
+  }
+
+  def failed[T, Out](e: Throwable) = Generator.Mat.future[T, Out](() => Future.failed[Source[T, Future[Out]]](e))
 
   private def toUnit[T](source: Source[T, akka.NotUsed])(implicit ec: ExecutionContext): Source[T, Future[Unit]] =
     source.mapMaterializedValue(_ ⇒ Future.successful({}))

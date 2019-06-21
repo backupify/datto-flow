@@ -8,19 +8,19 @@ object GeneratorImplicits {
   private[flow] case class WrappedFutureGenerator[+T, +Out](gen: Future[Generator[T, Out]])(
       implicit ec: ExecutionContext
   ) {
-    def generator = Generator.futureGenerator(gen)
+    def generator = Generator.futureGenerator(() => gen)
   }
 
   private[flow] case class WrappedFutureSourceMat[+T, +Out](source: Future[Source[T, Future[Out]]])(
       implicit ec: ExecutionContext
   ) {
-    def generator: Generator[T, Out] = Generator.Mat.future(source)
+    def generator: Generator[T, Out] = Generator.Mat.future(() => source)
   }
 
   private[flow] case class WrappedFutureSource[+T](source: Future[Source[T, akka.NotUsed]])(
       implicit ec: ExecutionContext
   ) {
-    def generator: Generator[T, Unit] = Generator.future(source)
+    def generator: Generator[T, Unit] = Generator.future(() => source)
   }
 
   private[flow] case class WrappedSourceMat[+T, +Out](source: Source[T, Future[Out]])(implicit ec: ExecutionContext) {
