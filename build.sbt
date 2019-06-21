@@ -9,7 +9,7 @@ lazy val supportedScalaVersions = List(scala211, scala212)
 
 lazy val commonSettings = Seq(
   organization := "com.datto",
-  scalaVersion := scala212,
+  crossScalaVersions := supportedScalaVersions,
   scalacOptions ++= Seq(
     "-unchecked",
     "-deprecation",
@@ -41,7 +41,6 @@ lazy val core = (project in file("core")).
   settings(
     name := "flow").
   settings(
-    crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"      %% "akka-actor"                           % akkaV,
@@ -55,7 +54,6 @@ lazy val testkit = (project in file("testkit")).
   settings(
     name := "flow-testkit").
   settings(
-    crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= {
       Seq(
         "org.scalatest"          %% "scalatest"                            % scalaTestV,
