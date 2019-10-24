@@ -2,7 +2,7 @@ language: scala
 jdk:
   - oraclejdk8
 scala:
-  - 2.12.8
+  - 2.12.10
   - 2.11.12
 sudo: false
 # From http://www.scala-sbt.org/1.0/docs/Travis-CI-with-sbt.html#%28Experimental%29+Reusing+Ivy+cache
