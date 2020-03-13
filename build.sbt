@@ -1,11 +1,10 @@
 lazy val scala212 = "2.12.10"
-lazy val scala211 = "2.11.12"
 
 scalaVersion in ThisBuild := scala212
 
-version in ThisBuild := "2.0.1"
+version in ThisBuild := "3.0.0"
 
-lazy val supportedScalaVersions = List(scala211, scala212)
+lazy val supportedScalaVersions = List(scala212)
 
 lazy val commonSettings = Seq(
   organization := "com.datto",
@@ -14,14 +13,14 @@ lazy val commonSettings = Seq(
     "-unchecked",
     "-deprecation",
     "-feature",
-    "-Ywarn-unused-import",
-    "-Ywarn-dead-code")) ++ stylePreferences
+    "-Xlint",
+    "-Xfatal-warnings")) ++ stylePreferences
 
 fork in run := true
 javaOptions in run += "-Xmx8G -XX:+PrintGC"
 
-val akkaV       = "2.5.4"
-val scalaTestV  = "3.0.1"
+val akkaV       = "2.6.4"
+val scalaTestV  = "3.0.8"
 
 lazy val root = project
   .in(file("."))

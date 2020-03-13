@@ -69,42 +69,42 @@ case class FlowBuilder[I, T, Ctx](
 ) {
 
   // Methods that synchronously transform the underlying FlowResults
-  def map[U](f: T ⇒ U): FlowBuilder[I, U, Ctx]              = mapResult(_.map(f))
-  def flatMap[U](f: T ⇒ Try[U]): FlowBuilder[I, U, Ctx]     = mapResult(_.flatMap(f))
-  def mapWithContext[U](f: (T, Ctx, Metadata) ⇒ U)          = mapResult(_.mapWithContext(f))
-  def flatMapWithContext[U](f: (T, Ctx, Metadata) ⇒ Try[U]) = mapResult(_.flatMapWithContext(f))
+  def map[U](f: T => U): FlowBuilder[I, U, Ctx]              = mapResult(_.map(f))
+  def flatMap[U](f: T => Try[U]): FlowBuilder[I, U, Ctx]     = mapResult(_.flatMap(f))
+  def mapWithContext[U](f: (T, Ctx, Metadata) => U)          = mapResult(_.mapWithContext(f))
+  def flatMapWithContext[U](f: (T, Ctx, Metadata) => Try[U]) = mapResult(_.flatMapWithContext(f))
 
   // Methods that asynchronously transform the underlying FlowResults
-  def mapAsync[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
+  def mapAsync[U](f: T => Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
     use(flow.mapAsyncUnordered(defaultParallelism)(_.mapAsync(f)))
-  def mapWithContextAsync[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext) =
+  def mapWithContextAsync[U](f: (T, Ctx, Metadata) => Future[U])(implicit ec: ExecutionContext) =
     mapResultAsync(_.mapWithContextAsync(f))
 
-  def mapAsyncOrdered[U](f: T ⇒ Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
+  def mapAsyncOrdered[U](f: T => Future[U])(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
     use(flow.mapAsync(defaultParallelism)(_.mapAsync(f)))
-  def mapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) ⇒ Future[U])(implicit ec: ExecutionContext) =
+  def mapWithContextAsyncOrdered[U](f: (T, Ctx, Metadata) => Future[U])(implicit ec: ExecutionContext) =
     use(flow.mapAsync(defaultParallelism)(_.mapWithContextAsync(f)))
 
-  def mapConcat[U](f: T ⇒ Iterable[U]): FlowBuilder[I, U, Ctx] = use(flow.mapConcat(_.mapConcat(f)))
+  def mapConcat[U](f: T => Iterable[U]): FlowBuilder[I, U, Ctx] = use(flow.mapConcat(_.mapConcat(f)))
   def mapConcatAsyncWithContext[U](
-      f: (T, Ctx, Metadata) ⇒ Future[Iterable[U]]
+      f: (T, Ctx, Metadata) => Future[Iterable[U]]
   )(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] =
-    use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f))).mapConcat({ x ⇒
+    use(flow.mapAsyncUnordered(defaultParallelism)(_.mapWithContextAsync(f))).mapConcat({ x =>
       x
     })
 
-  def mapResult[U](f: FlowResult[T, Ctx] ⇒ FlowResult[U, Ctx]) = use(flow.map(f))
-  def mapResultAsync[U](f: FlowResult[T, Ctx] ⇒ Future[FlowResult[U, Ctx]])(implicit ec: ExecutionContext) =
+  def mapResult[U](f: FlowResult[T, Ctx] => FlowResult[U, Ctx]) = use(flow.map(f))
+  def mapResultAsync[U](f: FlowResult[T, Ctx] => Future[FlowResult[U, Ctx]])(implicit ec: ExecutionContext) =
     use(flow.mapAsyncUnordered(defaultParallelism)(_.mapResultAsync(f)))
 
   def withParallelism(parallelism: Int) = FlowBuilder(flow, parallelism)
 
-  def filterValue(predicate: T ⇒ Boolean) = filter {
-    case FlowSuccess(v, _, _) ⇒ predicate(v)
-    case FlowFailure(e, _, _) ⇒ false
+  def filterValue(predicate: T => Boolean) = filter {
+    case FlowSuccess(v, _, _) => predicate(v)
+    case FlowFailure(e, _, _) => false
   }
 
-  def filter(predicate: FlowResult[T, Ctx] ⇒ Boolean) = use(flow.filter(predicate))
+  def filter(predicate: FlowResult[T, Ctx] => Boolean) = use(flow.filter(predicate))
 
   def throttle(elements: Int, per: FiniteDuration = 1.second): FlowBuilder[I, T, Ctx] =
     throttle(elements, per, elements)
@@ -116,7 +116,7 @@ case class FlowBuilder[I, T, Ctx](
       elements: Int,
       per: FiniteDuration,
       maximumBurst: Int,
-      costCalculation: (T) ⇒ Int
+      costCalculation: (T) => Int
   ): FlowBuilder[I, T, Ctx] =
     throttle(elements, per, maximumBurst, costCalculation, akka.stream.ThrottleMode.Shaping)
 
@@ -124,91 +124,93 @@ case class FlowBuilder[I, T, Ctx](
       elements: Int,
       per: FiniteDuration,
       maximumBurst: Int,
-      costCalculation: (T) ⇒ Int,
+      costCalculation: (T) => Int,
       mode: akka.stream.ThrottleMode
   ): FlowBuilder[I, T, Ctx] = {
-    val costCalc = (res: FlowResult[T, Ctx]) ⇒ res.map(costCalculation).getOrElse(1)
+    val costCalc = (res: FlowResult[T, Ctx]) => res.map(costCalculation).getOrElse(1)
     use(flow.throttle(elements, per, maximumBurst, costCalc, mode))
   }
 
   def addMetadata(entry: MetadataEntry)        = use(flow.map(_.addMetadata(entry)))
   def addMetadata(entries: Seq[MetadataEntry]) = use(flow.map(_.addMetadata(entries)))
-  def addMetadata(f: T ⇒ MetadataEntry)        = use(flow.map(_.addMetadata(f)))
+  def addMetadata(f: T => MetadataEntry)       = use(flow.map(_.addMetadata(f)))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def flatMapConcat[U](
-      f: (T, Ctx, Metadata) ⇒ Generator[FlowResult[U, Ctx], Unit]
+      f: (T, Ctx, Metadata) => Generator[FlowResult[U, Ctx], Unit]
   )(implicit ec: ExecutionContext): FlowBuilder[I, U, Ctx] = {
     val sourceFlow: Flow[FlowResult[I, Ctx], FlowResult[Source[FlowResult[U, Ctx], Future[Unit]], Ctx], akka.NotUsed] =
-      mapWithContextAsync((value, ctx, md) ⇒ f(value, ctx, md).source()).flow
-    use(sourceFlow.flatMapConcat { sourceResult ⇒
+      mapWithContextAsync((value, ctx, md) => f(value, ctx, md).source()).flow
+    use(sourceFlow.flatMapConcat { sourceResult =>
       sourceResult.value match {
-        case Success(source) ⇒ source
-        case Failure(e)      ⇒ Source.single(sourceResult.asInstanceOf[FlowResult[U, Ctx]])
+        case Success(source) => source
+        case Failure(e)      => Source.single(sourceResult.asInstanceOf[FlowResult[U, Ctx]])
       }
     })
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.TryPartial"))
-  def flatMapGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] ⇒ Seq[Try[U]]) = {
-    val groupMap: Seq[FlowResult[T, Ctx]] ⇒ Seq[FlowResult[U, Ctx]] = (irs: Seq[FlowResult[T, Ctx]]) ⇒ {
-      val (successes, failures) = irs.partition(r ⇒ r.value.isSuccess)
+  def flatMapGrouped[U](n: Int)(f: Seq[(T, Ctx, Metadata)] => Seq[Try[U]]) = {
+    val groupMap: Seq[FlowResult[T, Ctx]] => Seq[FlowResult[U, Ctx]] = (irs: Seq[FlowResult[T, Ctx]]) => {
+      val (successes, failures) = irs.partition(r => r.value.isSuccess)
       val transformedSuccesses: Seq[FlowResult[U, Ctx]] =
         successes.length match {
-          case 0 ⇒ Seq[FlowResult[U, Ctx]]()
-          case _ ⇒
-            Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
-              case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
+          case 0 => Seq[FlowResult[U, Ctx]]()
+          case _ =>
+            Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
+              case (tryResult, FlowSuccess(_, context, metadata)) => FlowResult[U, Ctx](tryResult, context, metadata)
             }) match {
-              case Success(result) ⇒ result
-              case Failure(e) ⇒
-                successes.map(success ⇒ FlowResult[U, Ctx](Failure[U](e), success.context, success.metadata))
+              case Success(result) => result
+              case Failure(e) =>
+                successes.map(success => FlowResult[U, Ctx](Failure[U](e), success.context, success.metadata))
             }
         }
 
       transformedSuccesses ++ failures.asInstanceOf[Seq[FlowResult[U, Ctx]]]
     }
 
-    use(flow.grouped(n).map(groupMap).mapConcat(u ⇒ u))
+    use(flow.grouped(n).map(groupMap).mapConcat(u => u))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.TryPartial"))
   def flatMapAsyncGrouped[U](
       n: Int
-  )(f: Seq[(T, Ctx, Metadata)] ⇒ Future[Seq[Try[U]]])(implicit ec: ExecutionContext) = {
-    val groupMap: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]] = (irs: Seq[FlowResult[T, Ctx]]) ⇒ {
-      val (successes, failures) = irs.partition(r ⇒ r.value.isSuccess)
+  )(f: Seq[(T, Ctx, Metadata)] => Future[Seq[Try[U]]])(implicit ec: ExecutionContext) = {
+    val groupMap: Seq[FlowResult[T, Ctx]] => Future[Seq[FlowResult[U, Ctx]]] = (irs: Seq[FlowResult[T, Ctx]]) => {
+      val (successes, failures) = irs.partition(r => r.value.isSuccess)
 
       // Apply the provided transformation to the successes, and reconstruct the resulting FlowResults
       val transformedSuccesses: Future[Seq[FlowResult[U, Ctx]]] =
         successes.length match {
-          case 0 ⇒ Future.successful(Seq[FlowResult[U, Ctx]]())
-          case _ ⇒
-            Try(f(successes.map(ir ⇒ (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
-              case (results, originals) ⇒
+          case 0 => Future.successful(Seq[FlowResult[U, Ctx]]())
+          case _ =>
+            Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
+              case (results, originals) =>
                 results.zip(originals).map {
-                  case (tryResult, FlowSuccess(_, context, metadata)) ⇒ FlowResult[U, Ctx](tryResult, context, metadata)
+                  case (tryResult, FlowSuccess(_, context, metadata)) =>
+                    FlowResult[U, Ctx](tryResult, context, metadata)
                 }
             }) match {
-              case Success(result) ⇒
+              case Success(result) =>
                 result.recover({
-                  case e: Throwable ⇒ successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata))
+                  case e: Throwable =>
+                    successes.map(success => FlowFailure[U, Ctx](e, success.context, success.metadata))
                 })
-              case Failure(e) ⇒
-                Future.successful(successes.map(success ⇒ FlowFailure[U, Ctx](e, success.context, success.metadata)))
+              case Failure(e) =>
+                Future.successful(successes.map(success => FlowFailure[U, Ctx](e, success.context, success.metadata)))
             }
         }
       transformedSuccesses.map(_ ++ failures.asInstanceOf[Seq[FlowResult[U, Ctx]]])
     }
 
-    use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(groupMap).mapConcat(u ⇒ u))
+    use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(groupMap).mapConcat(u => u))
   }
 
-  def mapResultGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Seq[FlowResult[U, Ctx]]) =
-    use(flow.grouped(n).map(f).mapConcat(u ⇒ u))
+  def mapResultGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] => Seq[FlowResult[U, Ctx]]) =
+    use(flow.grouped(n).map(f).mapConcat(u => u))
 
-  def mapResultAsyncGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] ⇒ Future[Seq[FlowResult[U, Ctx]]]) =
-    use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(f).mapConcat(u ⇒ u))
+  def mapResultAsyncGrouped[U](n: Int)(f: Seq[FlowResult[T, Ctx]] => Future[Seq[FlowResult[U, Ctx]]]) =
+    use(flow.grouped(n).mapAsyncUnordered(defaultParallelism)(f).mapConcat(u => u))
 
   def recover[U >: T](p: PartialFunction[Throwable, U])          = mapResult(_.recover(p))
   def recoverWith[U >: T](p: PartialFunction[Throwable, Try[U]]) = mapResult(_.recoverWith(p))
@@ -222,7 +224,7 @@ case class FlowBuilder[I, T, Ctx](
   def via[U](other: Flow[FlowResult[T, Ctx], FlowResult[U, Ctx], akka.NotUsed]) = use(flow.via(other))
 
   def logResult(log: LoggingAdapter, prefix: String = "") =
-    use(flow.map { res ⇒
+    use(flow.map { res =>
       log.debug("{} {}", prefix, res)
       res
     })

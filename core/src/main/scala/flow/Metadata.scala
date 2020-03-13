@@ -10,8 +10,8 @@ case class Metadata(entries: Seq[MetadataEntry]) extends Seq[MetadataEntry] {
   def length            = entries.length
 
   def ofType[T <: MetadataEntry](implicit ev: ClassTag[T]): Seq[T] = entries.flatMap {
-    case entry: T ⇒ Some(entry)
-    case _        ⇒ None: Option[T]
+    case entry: T => Some(entry)
+    case _        => None: Option[T]
   }
 
   def findOfType[T <: MetadataEntry](implicit ev: ClassTag[T]): Option[T] = ofType[T].headOption

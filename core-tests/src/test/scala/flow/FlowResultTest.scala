@@ -24,7 +24,7 @@ class FlowResultTest extends FunSpec with ScalaFutures {
 
       it("should not modify failures") {
         val exception = new Exception
-        val res = FlowResult[Int, String](Failure(exception), "")
+        val res       = FlowResult[Int, String](Failure(exception), "")
         assert(res.map(_ + 1).value === Failure(exception))
       }
 
@@ -35,7 +35,7 @@ class FlowResultTest extends FunSpec with ScalaFutures {
 
       it("should preserve metadata") {
         val metadata = Metadata(Seq(MockMetadata))
-        val res = FlowResult(Success(1), "", metadata)
+        val res      = FlowResult(Success(1), "", metadata)
         assert(res.map(_ + 1).metadata === metadata)
       }
     }
@@ -43,50 +43,50 @@ class FlowResultTest extends FunSpec with ScalaFutures {
     describe("flatMap") {
       it("should allow results to be mapped") {
         val res = FlowResult(Success(1), "")
-        assert(res.flatMap(x ⇒ Success(x + 1)).value === Success(2))
+        assert(res.flatMap(x => Success(x + 1)).value === Success(2))
       }
 
       it("should allow a step to fail") {
         val exception = new Exception
-        val res = FlowResult(Success(1), "")
-        val out = res.flatMap(x ⇒ Failure(exception)).value
+        val res       = FlowResult(Success(1), "")
+        val out       = res.flatMap(x => Failure(exception)).value
         assert(out === Failure(exception))
       }
 
       it("should not modify failures") {
         val exception = new Exception
-        val res = FlowResult[Int, String](Failure(exception), "")
-        assert(res.flatMap(x ⇒ Success(x + 1)).value === Failure(exception))
+        val res       = FlowResult[Int, String](Failure(exception), "")
+        assert(res.flatMap(x => Success(x + 1)).value === Failure(exception))
       }
 
       it("should preserve context") {
         val res = FlowResult(Success(1), "ctx")
-        assert(res.flatMap(_ ⇒ Success(1)).context === "ctx")
+        assert(res.flatMap(_ => Success(1)).context === "ctx")
       }
 
       it("should preserve metadata") {
         val metadata = Metadata(Seq(MockMetadata))
-        val res = FlowResult(Success(1), "", metadata)
-        assert(res.flatMap(_ ⇒ Success(1)).metadata === metadata)
+        val res      = FlowResult(Success(1), "", metadata)
+        assert(res.flatMap(_ => Success(1)).metadata === metadata)
       }
     }
 
     describe("mapAsync") {
       it("should allow results to be mapped") {
-        val res = FlowResult(Success(1), "")
-        val outFuture = res.mapAsync(x ⇒ Future.successful(x + 1))
+        val res       = FlowResult(Success(1), "")
+        val outFuture = res.mapAsync(x => Future.successful(x + 1))
 
-        whenReady(outFuture) { out ⇒
+        whenReady(outFuture) { out =>
           assert(out.value === Success(2))
         }
       }
 
       it("should convert failed futures to failed FlowResults, so that the future is always successful") {
-        val res = FlowResult(Success(1), "")
+        val res       = FlowResult(Success(1), "")
         val exception = new Exception
-        val outFuture = res.mapAsync(x ⇒ Future.failed(exception))
+        val outFuture = res.mapAsync(x => Future.failed(exception))
 
-        whenReady(outFuture) { out ⇒
+        whenReady(outFuture) { out =>
           assert(out.value === Failure(exception))
         }
       }
@@ -94,8 +94,8 @@ class FlowResultTest extends FunSpec with ScalaFutures {
 
     describe("addMetadata") {
       it("should allow metadata to be added") {
-        val res = FlowResult(Success(1), "")
-        val entry = MockMetadata
+        val res    = FlowResult(Success(1), "")
+        val entry  = MockMetadata
         val newRes = res.addMetadata(entry)
         assert(newRes.metadata === Metadata(Seq(entry)))
 
@@ -106,22 +106,22 @@ class FlowResultTest extends FunSpec with ScalaFutures {
       it("should recover on a specific error") {
         val res = FlowResult(Failure(MockException()), "")
         val outFuture = res.recoverAsync {
-          case MockException() ⇒ Future.successful(2)
+          case MockException() => Future.successful(2)
         }
 
-        whenReady(outFuture) { out ⇒
+        whenReady(outFuture) { out =>
           assert(out.value === Success(2))
         }
       }
 
       it("should transform errors provided in the recovery block") {
         val res = FlowResult(Failure(MockException()), "")
-        val e = new Exception
+        val e   = new Exception
         val outFuture = res.recoverAsync {
-          case MockException() ⇒ Future.failed(e)
+          case MockException() => Future.failed(e)
         }
 
-        whenReady(outFuture) { out ⇒
+        whenReady(outFuture) { out =>
           assert(out.value === Failure(e))
         }
       }
