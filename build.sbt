@@ -19,7 +19,7 @@ lazy val commonSettings = Seq(
 fork in run := true
 javaOptions in run += "-Xmx8G -XX:+PrintGC"
 
-val akkaV       = "2.6.3"
+val akkaV       = "2.6.4"
 val scalaTestV  = "3.0.8"
 
 lazy val root = project
