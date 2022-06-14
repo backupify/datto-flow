@@ -55,6 +55,8 @@ object Generator {
 }
 
 class Generator[+T, +Out](private[flow] val source: () => Future[Source[T, Future[Out]]]) {
+  def futureSource: Future[Source[T, Future[Out]]] = source()
+
   def map[U](f: T => U)(implicit ec: ExecutionContext): Generator[U, Out] = use(() => source().map(_.map(f)))
 
   def mapAsync[U](parallelism: Int)(f: T => Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =
