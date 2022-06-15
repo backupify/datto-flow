@@ -55,6 +55,9 @@ object Generator {
 }
 
 class Generator[+T, +Out](private[flow] val source: () => Future[Source[T, Future[Out]]]) {
+
+  def toSource: Source[T, Future[Out]] = Source.lazyFutureSource(source).mapMaterializedValue(_.flatten)
+
   def map[U](f: T => U)(implicit ec: ExecutionContext): Generator[U, Out] = use(() => source().map(_.map(f)))
 
   def mapAsync[U](parallelism: Int)(f: T => Future[U])(implicit ec: ExecutionContext): Generator[U, Out] =

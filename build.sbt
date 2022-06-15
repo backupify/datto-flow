@@ -1,8 +1,8 @@
-lazy val scala212 = "2.12.10"
+lazy val scala212 = "2.12.15"
 
-scalaVersion in ThisBuild := scala212
+ThisBuild / scalaVersion := scala212
 
-version in ThisBuild := "3.0.0"
+ThisBuild / version := "3.1.0"
 
 lazy val supportedScalaVersions = List(scala212)
 
@@ -16,8 +16,8 @@ lazy val commonSettings = Seq(
     "-Xlint",
     "-Xfatal-warnings")) ++ stylePreferences
 
-fork in run := true
-javaOptions in run += "-Xmx8G -XX:+PrintGC"
+run / fork := true
+run / javaOptions += "-Xmx8G -XX:+PrintGC"
 
 val akkaV       = "2.6.4"
 val scalaTestV  = "3.0.8"
@@ -73,7 +73,7 @@ lazy val coreTests = (project in file("core-tests")).
 
 
 lazy val stylePreferences = Seq(
-  wartremoverWarnings in (Compile, compile) ++= Seq(
+  Compile / compile / wartremoverWarnings ++= Seq(
     Wart.StringPlusAny,
     Wart.AsInstanceOf,
     Wart.IsInstanceOf,
@@ -89,7 +89,7 @@ lazy val stylePreferences = Seq(
 
 publishMavenStyle := true
 
-publishTo in ThisBuild := {
+ThisBuild / publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
     Some("snapshots" at nexus + "content/repositories/snapshots")
@@ -99,11 +99,11 @@ publishTo in ThisBuild := {
 
 pomIncludeRepository := { _ => false }
 
-publishArtifact in Test := false
+Test / publishArtifact  := false
 
 sonatypeProfileName := "com.datto"
 
-pomExtra in ThisBuild := (
+ThisBuild / pomExtra := (
   <url>https://github.com/backupify/datto-flow</url>
   <licenses>
     <license>
