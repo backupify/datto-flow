@@ -11,16 +11,30 @@ import scala.collection.immutable.{Iterable, Seq}
   * to be propogated.
   */
 object FlowResult {
+  def apply[T, Ctx](
+      value: Try[T],
+      context: Ctx,
+      metadata: Metadata = Metadata(),
+      timings: TimingList = TimingList()
+  ): FlowResult[T, Ctx] =
+    value match {
+      case Success(successVal) => FlowSuccess(successVal, context, metadata, timings)
+      case Failure(e)          => FlowFailure(e, context, metadata, timings)
+    }
+
   def apply[T, Ctx](orig: FlowResult[_, _], value: Try[T], context: Ctx, metadata: Metadata): FlowResult[T, Ctx] =
     FlowResult(value, context, metadata, orig.timings.add(value.map(v => v.getClass.toString()).getOrElse("Error")))
+
+  def unapply[T, Ctx](obj: FlowResult[T, Ctx]): Some[(Try[T], Ctx, Metadata, TimingList)] =
+    Some((obj.value, obj.context, obj.metadata, obj.timings))
 }
 
-case class FlowResult[+T, Ctx](
-    value: Try[T],
-    context: Ctx,
-    metadata: Metadata = Metadata(),
-    timings: TimingList = TimingList()
-) {
+sealed trait FlowResult[+T, Ctx] {
+  val value: Try[T]
+  val context: Ctx
+  val metadata: Metadata
+  val timings: TimingList
+
   // try interface
   def map[U](f: T => U)                                          = use(value.map(f))
   def transform[U](s: (T) => Try[U], f: (Throwable) => Try[U])   = use(value.transform(s, f))
@@ -89,33 +103,39 @@ case class FlowResult[+T, Ctx](
   val creationTime = System.currentTimeMillis()
 }
 
-case object FlowSuccess {
-  def apply[T, Ctx](value: T, context: Ctx, metadata: Metadata) = FlowResult[T, Ctx](Success(value), context, metadata)
+case class FlowSuccess[T, Ctx](
+    successVal: T,
+    context: Ctx,
+    metadata: Metadata = Metadata(),
+    timings: TimingList = TimingList()
+) extends FlowResult[T, Ctx] {
+  override val value: Try[T] = Success(successVal)
+}
 
-  def apply[T, Ctx](value: T, context: Ctx) = FlowResult[T, Ctx](Success(value), context)
+object FlowSuccess {
+  def unapply[T, Ctx](obj: FlowSuccess[T, Ctx]): Some[(T, Ctx, Metadata)] =
+    Some((obj.successVal, obj.context, obj.metadata))
+}
 
-  def unapply[T, Ctx](obj: FlowResult[T, Ctx]): Option[(T, Ctx, Metadata)] = obj.value match {
-    case Success(v) => Some((v, obj.context, obj.metadata))
-    case _          => None
-  }
+case class FlowFailure[T, Ctx](
+    e: Throwable,
+    context: Ctx,
+    metadata: Metadata = Metadata(),
+    timings: TimingList = TimingList()
+) extends FlowResult[T, Ctx] {
+  override val value: Try[T] = Failure(e)
 }
 
 case object FlowFailure {
-  def apply[T, Ctx](error: Throwable, context: Ctx, metadata: Metadata): FlowResult[T, Ctx] =
-    FlowResult[T, Ctx](Failure[T](error), context, metadata)
-
-  def apply[T, Ctx](error: Throwable, context: Ctx): FlowResult[T, Ctx] =
-    FlowResult[T, Ctx](Failure[T](error), context)
-
-  def unapply[T, Ctx](obj: FlowResult[T, Ctx]): Option[(Throwable, Ctx, Metadata)] = obj.value match {
-    case Failure(e) => Some((e, obj.context, obj.metadata))
-    case _          => None
-  }
+  def unapply[T, Ctx](obj: FlowFailure[T, Ctx]): Some[(Throwable, Ctx, Metadata)] =
+    Some((obj.e, obj.context, obj.metadata))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def from[T, U, Ctx](obj: FlowResult[T, Ctx]): FlowResult[U, Ctx] = obj match {
     case FlowSuccess(v, ctx, md) => FlowResult(obj, Failure[U](new Exception("Coerced to Failure")), ctx, md)
     case FlowFailure(e, ctx, md) => obj.asInstanceOf[FlowResult[U, Ctx]]
+    //    case FlowResult(Success(_), ctx, md, _) => FlowResult(obj, Failure[U](new Exception("Coerced to Failure")), ctx, md)
+    //    case FlowResult(Failure(_), _, _, _)    => obj.asInstanceOf[FlowResult[U, Ctx]]
   }
 }
 

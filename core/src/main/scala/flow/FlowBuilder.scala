@@ -9,7 +9,7 @@ import scala.util.{Failure, Success, Try}
 import collection.immutable.{Iterable, Seq}
 
 /**
-  * A FlowBuilder provides tools for cunstructing an akka.stream Flow that transforms a
+  * A FlowBuilder provides tools for constructing an akka.stream Flow that transforms a
   * FlowResult into another FlowResult. More explicitly, it is used to construct a
   * Flow[FlowResult[I, Ctx], FlowResult[T, Ctx], akka.NotUsed]. Here I is thought of as the
   * initial or input type, T is the terminal or output type, and Ctx is the context type which
@@ -158,7 +158,7 @@ case class FlowBuilder[I, T, Ctx](
           case 0 => Seq[FlowResult[U, Ctx]]()
           case _ =>
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
-              case (tryResult, FlowSuccess(_, context, metadata)) => FlowResult[U, Ctx](tryResult, context, metadata)
+              case (tryResult, FlowResult(_, context, metadata, _)) => FlowResult[U, Ctx](tryResult, context, metadata)
             }) match {
               case Success(result) => result
               case Failure(e) =>
@@ -187,7 +187,7 @@ case class FlowBuilder[I, T, Ctx](
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
               case (results, originals) =>
                 results.zip(originals).map {
-                  case (tryResult, FlowSuccess(_, context, metadata)) =>
+                  case (tryResult, FlowResult(_, context, metadata, _)) =>
                     FlowResult[U, Ctx](tryResult, context, metadata)
                 }
             }) match {
