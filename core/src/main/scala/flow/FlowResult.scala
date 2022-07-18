@@ -134,8 +134,6 @@ case object FlowFailure {
   def from[T, U, Ctx](obj: FlowResult[T, Ctx]): FlowResult[U, Ctx] = obj match {
     case FlowSuccess(v, ctx, md) => FlowResult(obj, Failure[U](new Exception("Coerced to Failure")), ctx, md)
     case FlowFailure(e, ctx, md) => obj.asInstanceOf[FlowResult[U, Ctx]]
-    //    case FlowResult(Success(_), ctx, md, _) => FlowResult(obj, Failure[U](new Exception("Coerced to Failure")), ctx, md)
-    //    case FlowResult(Failure(_), _, _, _)    => obj.asInstanceOf[FlowResult[U, Ctx]]
   }
 }
 

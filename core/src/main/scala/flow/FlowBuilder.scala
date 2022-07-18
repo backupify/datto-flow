@@ -158,7 +158,7 @@ case class FlowBuilder[I, T, Ctx](
           case 0 => Seq[FlowResult[U, Ctx]]()
           case _ =>
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
-              case (tryResult, FlowResult(_, context, metadata, _)) => FlowResult[U, Ctx](tryResult, context, metadata)
+              case (tryResult, FlowSuccess(_, context, metadata)) => FlowResult[U, Ctx](tryResult, context, metadata)
             }) match {
               case Success(result) => result
               case Failure(e) =>
@@ -187,7 +187,7 @@ case class FlowBuilder[I, T, Ctx](
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(Future.successful(successes)).map {
               case (results, originals) =>
                 results.zip(originals).map {
-                  case (tryResult, FlowResult(_, context, metadata, _)) =>
+                  case (tryResult, FlowSuccess(_, context, metadata)) =>
                     FlowResult[U, Ctx](tryResult, context, metadata)
                 }
             }) match {
