@@ -26,7 +26,7 @@ import collection.immutable.{Iterable, Seq}
   *   .flatMap {
   *     case i if i < 0 => Failure(new Exception("number is negative!"))
   *     case i => Success(i)
-  *   }.mapWithContext((i, context, metadata) => s"Value: $i, Context: $context")
+  *   }.mapWithContext((i, context, metadata) => s"Value: $$i, Context: $$context")
   *   .flow
   *
   * This starts with an initial Flow containing FlowResults of integers (and with context as the initia int value).
@@ -159,6 +159,7 @@ case class FlowBuilder[I, T, Ctx](
           case _ =>
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
               case (tryResult, FlowSuccess(_, context, metadata)) => FlowResult[U, Ctx](tryResult, context, metadata)
+              case _                                              => throw new Exception("Unexpected non-success FlowResult")
             }) match {
               case Success(result) => result
               case Failure(e) =>
@@ -189,6 +190,7 @@ case class FlowBuilder[I, T, Ctx](
                 results.zip(originals).map {
                   case (tryResult, FlowSuccess(_, context, metadata)) =>
                     FlowResult[U, Ctx](tryResult, context, metadata)
+                  case _ => throw new Exception("Unexpected non-success FlowResult")
                 }
             }) match {
               case Success(result) =>
