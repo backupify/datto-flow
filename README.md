@@ -15,7 +15,11 @@ Manipulating such streams is tiresome. Datto-flow provides tools to make this ea
 The simplified definition of `FlowResult` is as follows:
 
 ```scala
-case class FlowResult[+T, Ctx](value: Try[T], context: Ctx, metadata: Metadata = Metadata())
+sealed trait FlowResult[+T, Ctx] {
+  val value: Try[T]
+  val context: Ctx
+  val metadata: Metadata = Metadata() 
+}
 ```
 
 So, a flow result contains either a value or a failure, a context that is unchanged over the course of the stream, as well as metadata, which represents additional information that may have been generated during the course of the stream.
@@ -107,7 +111,7 @@ Some examples:
 Creating a generator from data retrieved by a future:
 ```scala
 
-def getDataFuture(): Future[Stream[Int]]
+def getDataFuture(): Future[LazyList[Int]]
 
 val generator = Generator.future[Int, Unit] {
   getDataFuture().map(dataCollection => Source(dataCollection))
