@@ -9,7 +9,7 @@ import scala.util.{Failure, Success, Try}
 import collection.immutable.{Iterable, Seq}
 
 /**
-  * A FlowBuilder provides tools for cunstructing an akka.stream Flow that transforms a
+  * A FlowBuilder provides tools for constructing an akka.stream Flow that transforms a
   * FlowResult into another FlowResult. More explicitly, it is used to construct a
   * Flow[FlowResult[I, Ctx], FlowResult[T, Ctx], akka.NotUsed]. Here I is thought of as the
   * initial or input type, T is the terminal or output type, and Ctx is the context type which
@@ -26,7 +26,7 @@ import collection.immutable.{Iterable, Seq}
   *   .flatMap {
   *     case i if i < 0 => Failure(new Exception("number is negative!"))
   *     case i => Success(i)
-  *   }.mapWithContext((i, context, metadata) => s"Value: $i, Context: $context")
+  *   }.mapWithContext((i, context, metadata) => s"Value: $$i, Context: $$context")
   *   .flow
   *
   * This starts with an initial Flow containing FlowResults of integers (and with context as the initia int value).
@@ -159,6 +159,7 @@ case class FlowBuilder[I, T, Ctx](
           case _ =>
             Try(f(successes.map(ir => (ir.value.get, ir.context, ir.metadata))).zip(successes).map {
               case (tryResult, FlowSuccess(_, context, metadata)) => FlowResult[U, Ctx](tryResult, context, metadata)
+              case _                                              => throw new Exception("Unexpected non-success FlowResult")
             }) match {
               case Success(result) => result
               case Failure(e) =>
@@ -189,6 +190,7 @@ case class FlowBuilder[I, T, Ctx](
                 results.zip(originals).map {
                   case (tryResult, FlowSuccess(_, context, metadata)) =>
                     FlowResult[U, Ctx](tryResult, context, metadata)
+                  case _ => throw new Exception("Unexpected non-success FlowResult")
                 }
             }) match {
               case Success(result) =>

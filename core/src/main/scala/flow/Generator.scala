@@ -23,7 +23,7 @@ object Generator {
   def apply[T](source: Source[T, akka.NotUsed]): Generator[T, Unit] =
     Generator.Mat(toUnit(source))
 
-  def apply[T](stream: Stream[T]): Generator[T, Unit] =
+  def apply[T](stream: LazyList[T]): Generator[T, Unit] =
     Generator.Mat(toUnit(Source(stream)))
 
   def empty[T] = Generator[T](Source.empty[T])

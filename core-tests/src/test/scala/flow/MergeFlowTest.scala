@@ -23,11 +23,11 @@ class MergeFlowTest extends TestKit(ActorSystem("MergeFlowTest")) with FunSpecLi
   val failureFlow  = FlowBuilder[Int, String](2).flatMap(x => Failure(MockError)).flow
 
   def runFlow(initialValues: Seq[Try[Int]])(flow: ContextFlow[Int, Int, String]): Future[Seq[FlowResult[Int, String]]] =
-    Source(Stream(initialValues: _*))
+    Source(LazyList(initialValues: _*))
       .map(i => FlowResult(i, "context"))
       .viaMat(flow)(Keep.right)
       .toMat(Sink.seq)(Keep.right)
-      .run
+      .run()
 
   describe("Merging multiple flows") {
     it("should send items down the relevant flows according to the predicate") {

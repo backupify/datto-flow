@@ -1,10 +1,10 @@
-lazy val scala212 = "2.12.15"
+lazy val scala213 = "2.13.8"
 
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala213
 
-ThisBuild / version := "3.1.0"
+ThisBuild / version := "3.2.0"
 
-lazy val supportedScalaVersions = List(scala212)
+lazy val supportedScalaVersions = List(scala213)
 
 lazy val commonSettings = Seq(
   organization := "com.datto",

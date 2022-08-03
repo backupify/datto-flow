@@ -29,7 +29,7 @@ object GeneratorImplicits {
     def generator: Generator[T, Unit] = Generator(source)
   }
 
-  private[flow] case class WrappedStream[+T](stream: Stream[T]) {
+  private[flow] case class WrappedStream[+T](stream: LazyList[T]) {
     def generator: Generator[T, Unit] = Generator(stream)
   }
 
@@ -48,6 +48,6 @@ object GeneratorImplicits {
   implicit def sourceToWrapped[T](source: Source[T, akka.NotUsed]) =
     WrappedSource(source)
 
-  implicit def sourceToWrapped[T](stream: Stream[T]) =
+  implicit def sourceToWrapped[T](stream: LazyList[T]) =
     WrappedStream(stream)
 }

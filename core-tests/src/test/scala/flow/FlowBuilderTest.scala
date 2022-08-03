@@ -1,6 +1,5 @@
 package datto.flow
 
-import scala.collection.immutable.Seq
 import scala.concurrent._
 import scala.util._
 
@@ -17,11 +16,11 @@ class FlowBuilderTest extends TestKit(ActorSystem("FlowBuilder")) with FunSpecLi
   implicit val ec = system.dispatcher
 
   def runFlow(initialValues: Int*)(flowBuilder: FlowBuilder[Int, Int, Int]): Future[Seq[FlowResult[Int, Int]]] =
-    Source(Stream(initialValues: _*))
+    Source(LazyList(initialValues: _*))
       .map(i => FlowSuccess(i, i))
       .viaMat(flowBuilder.flow)(Keep.right)
       .toMat(Sink.seq)(Keep.right)
-      .run
+      .run()
 
   describe("the flow constructed by a FlowBuilder") {
     describe("synchronous transformations") {
