@@ -9,7 +9,6 @@ import akka.testkit.TestKit
 import datto.flow.test.GeneratorHelper
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
-import scala.concurrent._
 import scala.concurrent.duration._
 import GeneratorImplicits._
 
